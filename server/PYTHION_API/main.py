@@ -29,13 +29,12 @@ app = FastAPI(title="StrokeGuard API Gateway", version="2.1.0")
 
 # FIX: allow_origins=["*"] is incompatible with allow_credentials=True per the CORS spec.
 # Using explicit origins list. Set ALLOWED_ORIGINS in your .env for production.
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000")
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",")]
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -114,7 +113,6 @@ class VitalsPayload(BaseModel):
     prv_score: float                 # Calculated SDNN from React (cross-check + fallback)
     aha_lifestyle_score: int
     is_exercising: bool
-    final_risk_score: Optional[float] = None
     systolic: Optional[int] = 120
     diastolic: Optional[int] = 80
     latitude: Optional[float] = None
@@ -129,3 +127,274 @@ class VitalsPayload(BaseModel):
                 f"for a meaningful SDNN calculation. Got {len(v)}."
             )
         return v
+
+
+# --- TRIAGE & AI LOGIC ---
+def calculate_sdnn(bpm_history: List[float]) -> float:
+    """
+    Derive SDNN (ms) from a list of BPM values.
+    SDNN = standard deviation of RR intervals, where RR (ms) = 60000 / BPM.
+    Uses sample stdev (N-1), consistent with clinical HRV guidelines.
+    Requires at least 2 readings; raises ValueError otherwise.
+    """
+    if len(bpm_history) < 2:
+        raise ValueError("Need at least 2 BPM readings to calculate SDNN.")
+    rr_intervals = [60000.0 / bpm for bpm in bpm_history]
+    return statistics.stdev(rr_intervals)
+
+
+def calculate_composite_risk(
+    aha: int, sys: int, dia: int, hrv_val: float, exercising: bool
+) -> str:
+    """
+    Triage matrix mapping PRV/SDNN and BP to clinical risk.
+
+    FIX: Removed blanket GREEN override for exercise. Hypertensive crisis
+    thresholds (>=180 systolic or >=120 diastolic) are evaluated first
+    regardless of exercise state, since a hypertensive emergency during
+    exercise is still an emergency. Only moderate elevation is suppressed
+    during exercise to avoid false positives from exertion-driven HRV dip.
+    """
+    # Hypertensive crisis — always RED, even during exercise.
+    if sys >= 180 or dia >= 120:
+        return "RED"
+
+    # If exercising, elevated-but-not-crisis readings are expected; skip further checks.
+    if exercising:
+        return "GREEN"
+
+    # HRV/PRV Thresholding (resting state only)
+    if hrv_val < 20.0:
+        hrv_stat = "RED"
+    elif hrv_val < 40.0:
+        hrv_stat = "YELLOW"
+    else:
+        hrv_stat = "GREEN"
+
+    if hrv_stat == "RED":
+        return "RED"
+
+    if hrv_stat == "YELLOW":
+        return "RED" if (sys >= 140 or dia >= 90 or aha < 50) else "YELLOW"
+
+    # hrv_stat == "GREEN"
+    return "YELLOW" if (sys >= 130 or dia > 80 or aha < 50) else "GREEN"
+
+
+async def generate_ai_coach(
+    patient_id: str, sys: int, dia: int, hrv: float, aha: int
+) -> str:
+    """AI Clinical Reasoning via Gemini 3.1 Pro (using the NEW google-genai SDK)."""
+    profile = get_db_row("profiles", patient_id)
+    if not profile:
+        profile = {"name": "Patient", "age": "Unknown", "history": "None", "recent_activity": "Unknown"}
+
+    system_instr = (
+        "You are StrokeGuard AI. Analyze vitals vs history. Warm, calming tone. "
+        "No diagnosis. No markdown. Detailed and comprehensive actionable next steps."
+    )
+    
+    try:
+        # The new SDK uses client.aio for async/await calls
+        response = await client.aio.models.generate_content(
+            model = genai.GenerativeModel("gemini-1.5-pro",  system_instruction=system_instr),
+            contents=(
+                f"Patient: {profile.get('name')}, {profile.get('age')}. "
+                f"History: {profile.get('history')}. "
+                f"Vitals: BP {sys}/{dia}, PRV {hrv}ms, AHA Score {aha}. "
+                f"Current Context: {profile.get('recent_activity')}. "
+                "Task: Provide immediate triage advice for this Yellow state."
+            ),
+            # System instructions now live inside a config object
+            config=types.GenerateContentConfig(
+                system_instruction=system_instr,
+            )
+        )
+        return response.text.strip()
+        
+    except Exception as e:
+        logger.error("Gemini AI coach failed for patient %s: %s", patient_id, e)
+        name = profile.get("name", "Patient")
+        return (
+            f"{name}, your vitals are slightly elevated. "
+            "Please sit down, breathe slowly and deeply, and avoid strenuous activity."
+        )
+
+def send_emergency_sms(
+    patient_id: str,
+    sys: int,
+    dia: int,
+    hrv: float,
+    lat: Optional[float],
+    lng: Optional[float],
+    emergency_contact: str,
+):
+    """
+    Fires emergency protocol via Twilio.
+
+    FIX: emergency_contact is now passed in from the patient profile rather
+    than being hardcoded, so each patient's alerts reach the right person.
+    FIX: Failures are logged durably to DB (not just printed) so the frontend
+    can surface a "alert failed" warning to the user.
+    """
+    try:
+        client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+        loc = f"https://www.google.com/maps?q={lat},{lng}" if lat and lng else "GPS Disabled"
+        msg = (
+            f"STROKEGUARD ALERT: Patient {patient_id}\n"
+            f"Vitals: BP {sys}/{dia} | PRV {hrv}ms\n"
+            f"Location: {loc}\n"
+            "Please dispatch help immediately."
+        )
+        client.messages.create(
+            body=msg,
+            from_=os.getenv("TWILIO_PHONE_NUMBER"),
+            to=emergency_contact,
+        )
+        logger.info("Emergency SMS sent for patient %s to %s", patient_id, emergency_contact)
+    except Exception as e:
+        # FIX: Log to both logger and DB so the failure is visible in monitoring
+        # and surfaced to the frontend via the /status endpoint.
+        logger.error(
+            "Twilio SMS FAILED for patient %s (contact: %s): %s",
+            patient_id,
+            emergency_contact,
+            e,
+        )
+        log_alert_failure(patient_id, str(e))
+
+
+# --- API ENDPOINTS ---
+@app.post("/api/v1/patient/profile")
+async def update_profile(payload: ProfilePayload):
+    # FIX: Use .model_dump() — .dict() is deprecated in Pydantic v2.
+    save_db_row("profiles", payload.patient_id, payload.model_dump())
+    return {"status": "success", "message": "Profile updated"}
+
+
+@app.post("/api/v1/vitals/sync")
+async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks):
+    # Fetch profile to get emergency contact — fail fast if profile is missing.
+    profile = get_db_row("profiles", payload.patient_id)
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No profile found for patient {payload.patient_id}. Register the patient first.",
+        )
+
+    # 1. Calculate SDNN server-side
+    try:
+        sdnn = calculate_sdnn(payload.pulse_rate_history)
+    except ValueError as e:
+        logger.error(
+            "SDNN calculation failed despite validator for patient %s (%s) "
+            "— falling back to client prv_score %.1f",
+            payload.patient_id, e, payload.prv_score,
+        )
+        sdnn = payload.prv_score
+
+    if abs(sdnn - payload.prv_score) > 10:
+        logger.warning(
+            "SDNN mismatch for patient %s: backend=%.1f ms, client=%.1f ms — possible React bug",
+            payload.patient_id, sdnn, payload.prv_score,
+        )
+
+    # 2. Triage Logic
+    final_status = calculate_composite_risk(
+        payload.aha_lifestyle_score,
+        payload.systolic,
+        payload.diastolic,
+        sdnn,
+        payload.is_exercising,
+    )
+
+    # 3. Load previous state
+    prev = get_db_row("patients", payload.patient_id)
+    sms_sent = prev.get("sms_sent", False)
+    ai_advice = prev.get("ai_advice", "")
+    ai_last_gen_time = prev.get("ai_last_gen_time", 0) # Default to 0 epoch time
+
+    current_time = time.time()
+
+    # 4. Mode-specific triggers with Async and Cooldown
+    if final_status == "YELLOW":
+        # FIX: Only call Gemini if 5 minutes (300 seconds) have passed since the last call
+        if current_time - ai_last_gen_time > 300:
+            ai_advice = await generate_ai_coach(
+                payload.patient_id,
+                payload.systolic,
+                payload.diastolic,
+                sdnn,
+                payload.aha_lifestyle_score,
+            )
+            ai_last_gen_time = current_time
+            logger.info("Generated new AI advice for %s", payload.patient_id)
+        else:
+            # Keep the old advice; do not hit the API
+            logger.info("Skipped AI generation for %s (on cooldown)", payload.patient_id)
+
+    # SMS: only for RED, only once per RED episode (reset when GREEN)
+    if final_status == "RED" and not sms_sent:
+        background_tasks.add_task(
+            send_emergency_sms,
+            payload.patient_id,
+            payload.systolic,
+            payload.diastolic,
+            sdnn,
+            payload.latitude,
+            payload.longitude,
+            profile["emergency_contact"],
+        )
+        sms_sent = True
+
+    if final_status == "GREEN":
+        sms_sent = False
+        ai_advice = ""
+        # Reset cooldown when they return to green so the next yellow triggers immediately
+        ai_last_gen_time = 0 
+
+    # 5. Persistence
+    new_state = {
+        "status": final_status,
+        "hrv": sdnn,
+        "hrv_client": payload.prv_score,
+        "bp": f"{payload.systolic}/{payload.diastolic}",
+        "sms_sent": sms_sent,
+        "ai_advice": ai_advice,
+        "ai_last_gen_time": ai_last_gen_time,  # Persist the timestamp
+        "is_exercising": payload.is_exercising,
+        "current_mode": payload.mode,
+        "alert_failure": prev.get("alert_failure") if final_status == "RED" else None,
+    }
+    save_db_row("patients", payload.patient_id, new_state)
+
+    logger.info(
+        "SYNC [%s]: ID:%s | BP:%s/%s | HRV(backend)=%.1f HRV(client)=%.1f | Status:%s",
+        payload.mode,
+        payload.patient_id,
+        payload.systolic,
+        payload.diastolic,
+        sdnn,
+        payload.prv_score,
+        final_status,
+    )
+    return {"status": final_status, "ai_coach": ai_advice}
+
+
+@app.get("/api/v1/patient/{patient_id}/status")
+async def get_status(patient_id: str):
+    state = get_db_row("patients", patient_id)
+    if not state:
+        return {"status": "GREEN", "ui_action": "PASSIVE_MONITORING"}
+
+    ui_action = "PASSIVE_MONITORING"
+    if state.get("is_exercising"):
+        ui_action = "EXERCISE_MODE_ACTIVE"
+    elif state.get("status") == "YELLOW":
+        ui_action = "SHOW_AI_ADVICE_MODAL"
+    elif state.get("status") == "RED":
+        ui_action = "TRIGGER_FAST_CHECK_EMERGENCY"
+
+    # Surface alert failures to the frontend so the UI can warn the user
+    # that the emergency SMS may not have been delivered.
+    return {**state, "ui_action": ui_action}
