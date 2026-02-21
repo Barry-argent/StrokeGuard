@@ -27,13 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@app.get("/")
-async def root():
-    return {
-        "app": "StrokeGuard API Gateway",
-        "status": "online",
-        "version": "2.2.0"
-    }
+
 
 # Modern FastAPI lifespan event to handle async DB initialization
 @asynccontextmanager
@@ -224,6 +218,16 @@ async def send_emergency_sms(patient_id: str, sys: int, dia: int, hrv: float, la
         await save_db_row("patients", patient_id, latest_state)
 
 # --- API ENDPOINTS ---
+
+@app.get("/")
+async def root():
+    return {
+        "app": "StrokeGuard API Gateway",
+        "status": "online",
+        "version": "2.2.0"
+    }
+    
+    
 @app.post("/api/v1/patient/profile")
 async def update_profile(payload: ProfilePayload):
     await save_db_row("profiles", payload.patient_id, payload.model_dump())
