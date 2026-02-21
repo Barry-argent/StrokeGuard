@@ -1,0 +1,2 @@
+client/app/api/internal/patient/[id]
+client/app/api/user/emergency-contacts/[id]

@@ -1,0 +1,2 @@
+client/app/api/internal/patient/[id]/status/route.ts
+client/app/api/user/emergency-contacts/[id]/route.ts
