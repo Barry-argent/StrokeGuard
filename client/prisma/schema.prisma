@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                     String              @id @default(cuid())
+  name                   String?
+  email                  String              @unique
+  password               String
+  emailVerified          DateTime?
+  image                  String?
+  hasCompletedOnboarding Boolean             @default(false)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  emergencyContacts      EmergencyContact[]
+  healthProfile          HealthProfile?
+  monitoringSessions     MonitoringSession[]
+}
+
+model HealthProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  dob            DateTime?
+  biologicalSex  String?
+  height         Float?
+  weight         Float?
+  country        String?
+  bloodPressure  String?
+  activityLevel  String?
+  updatedAt      DateTime  @updatedAt
+  diabetesStatus String?
+  familyHistory  String?
+  smokingStatus  String?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmergencyContact {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  phone        String
+  relationship String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MonitoringSession {
+  id                    String         @id @default(cuid())
+  userId                String
+  mode                  MonitoringMode
+  startedAt             DateTime       @default(now())
+  endedAt               DateTime?
+  durationSeconds       Int?
+  finalScore            Float?
+  avgPulseRate          Float?
+  avgPrv                Float?
+  riskDeltaFromBaseline Float?
+  autoStopped           Boolean        @default(false)
+  backendSessionId      String?
+  triageStatus          String?
+  backendSdnn           Float?
+  alertFailure          Boolean        @default(false)
+  aiAdvice              String?
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vitals                VitalSample[]
+
+  @@index([userId])
+  @@index([startedAt])
+}
+
+model VitalSample {
+  id                    String            @id @default(cuid())
+  sessionId             String
+  pulseRate             Float
+  prvSdnn               Float
+  computedScoreAtSample Float?
+  recordedAt            DateTime          @default(now())
+  session               MonitoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([recordedAt])
+}
+
+enum MonitoringMode {
+  QUICK_CHECK
+  ACTIVE
+}
