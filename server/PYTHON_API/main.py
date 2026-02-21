@@ -1,8 +1,9 @@
 import os
 import json
 import logging
-import statistics
+import math
 import time
+import asyncio
 from typing import Optional, List
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,7 @@ import aiosqlite
 from google import genai
 from google.genai import types, errors
 from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 
 # --- INITIALIZATION ---
 load_dotenv()
@@ -26,16 +28,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-
-
 # Modern FastAPI lifespan event to handle async DB initialization
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     yield
 
-app = FastAPI(title="StrokeGuard API Gateway", version="2.2.0", lifespan=lifespan)
+app = FastAPI(title="StrokeGuard API Gateway", version="2.2.1", lifespan=lifespan)
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
@@ -47,7 +46,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- DATABASE ENGINE (Now fully Asynchronous) ---
+# --- DATABASE ENGINE (Now fully Asynchronous & Safe) ---
+ALLOWED_TABLES = {"patients": "state", "profiles": "profile_data"}
+
 async def init_db():
     async with aiosqlite.connect("strokeguard.db") as db:
         await db.execute("CREATE TABLE IF NOT EXISTS patients (id TEXT PRIMARY KEY, state TEXT)")
@@ -55,14 +56,18 @@ async def init_db():
         await db.commit()
 
 async def get_db_row(table: str, entry_id: str) -> dict:
-    col = "state" if table == "patients" else "profile_data"
+    if table not in ALLOWED_TABLES:
+        raise ValueError("Invalid table name")
+    col = ALLOWED_TABLES[table]
     async with aiosqlite.connect("strokeguard.db") as db:
         async with db.execute(f"SELECT {col} FROM {table} WHERE id=?", (str(entry_id),)) as cursor:
             row = await cursor.fetchone()
             return json.loads(row[0]) if row else {}
 
 async def save_db_row(table: str, entry_id: str, data: dict):
-    col = "state" if table == "patients" else "profile_data"
+    if table not in ALLOWED_TABLES:
+        raise ValueError("Invalid table name")
+    col = ALLOWED_TABLES[table]
     async with aiosqlite.connect("strokeguard.db") as db:
         await db.execute(f"INSERT OR REPLACE INTO {table} (id, {col}) VALUES (?, ?)", (str(entry_id), json.dumps(data)))
         await db.commit()
@@ -124,8 +129,8 @@ class VitalsPayload(BaseModel):
         return v
 
 # --- TRIAGE & AI LOGIC ---
-def calculate_sdnn(bpm_history: List[float]) -> float:
-"""Calculates RMSSD (ms) for ultra-short-term HRV analysis."""
+def calculate_rmssd(bpm_history: List[float]) -> float:
+    """Calculates RMSSD (ms) for ultra-short-term HRV analysis."""
     if len(bpm_history) < 2:
         raise ValueError("Need at least 2 readings.")
     
@@ -142,6 +147,10 @@ def calculate_sdnn(bpm_history: List[float]) -> float:
     return math.sqrt(sum(squared_diffs) / len(squared_diffs))
 
 def calculate_composite_risk(aha: int, sys: int, dia: int, hrv_val: float, exercising: bool) -> str:
+    # Failsafe fallback if None slips past Pydantic
+    sys = sys or 120
+    dia = dia or 80
+
     if sys >= 180 or dia >= 120:
         return "RED"
     if exercising:
@@ -164,6 +173,10 @@ async def generate_ai_coach(patient_id: str, sys: int, dia: int, hrv: float, aha
     if not profile:
         profile = {"name": "Patient", "age": "Unknown", "history": "None", "recent_activity": "Unknown"}
 
+    # Truncate history to avoid token bloat
+    history_snippet = str(profile.get('history', 'None'))[-500:] 
+    activity_snippet = str(profile.get('recent_activity', 'Unknown'))[-200:]
+
     system_instr = (
         "You are StrokeGuard AI. Analyze vitals vs history. Warm, calming tone. "
         "No diagnosis. No markdown. Detailed and comprehensive actionable next steps."
@@ -174,16 +187,15 @@ async def generate_ai_coach(patient_id: str, sys: int, dia: int, hrv: float, aha
             model="gemini-2.5-flash",
             contents=(
                 f"Patient: {profile.get('name')}, {profile.get('age')}. "
-                f"History: {profile.get('history')}. "
-                f"Vitals: BP {sys}/{dia}, PRV {hrv}ms, AHA Score {aha}. "
-                f"Current Context: {profile.get('recent_activity')}. "
+                f"History (Recent): {history_snippet}. "
+                f"Vitals: BP {sys}/{dia}, PRV {hrv:.1f}ms, AHA Score {aha}. "
+                f"Current Context: {activity_snippet}. "
                 "Task: Provide immediate triage advice for this Yellow state."
             ),
             config=types.GenerateContentConfig(system_instruction=system_instr),
         )
         return response.text.strip()
     
-    # Catch specific Gemini API errors vs General exceptions
     except errors.APIError as api_err:
         logger.error("Gemini API Error for patient %s: %s", patient_id, api_err)
     except Exception as e:
@@ -196,31 +208,37 @@ async def generate_ai_coach(patient_id: str, sys: int, dia: int, hrv: float, aha
         "Please sit down, breathe slowly and deeply, and avoid strenuous activity."
     )
 
+def _send_twilio_sync(msg: str, to_contact: str):
+    """Synchronous Twilio wrapper to be run in a thread pool."""
+    twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+    twilio_client.messages.create(
+        body=msg,
+        from_=os.getenv("TWILIO_PHONE_NUMBER"),
+        to=to_contact,
+    )
+
 async def send_emergency_sms(patient_id: str, sys: int, dia: int, hrv: float, lat: Optional[float], lng: Optional[float], emergency_contact: str):
-    """Fires emergency protocol via Twilio and handles failures gracefully."""
+    """Fires emergency protocol via Twilio using asyncio.to_thread to prevent blocking."""
     try:
-        twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
         loc = f"https://www.google.com/maps?q={lat},{lng}" if lat and lng else "GPS Disabled"
         msg = (
             f"STROKEGUARD ALERT: Patient {patient_id}\n"
-            f"Vitals: BP {sys}/{dia} | PRV {hrv}ms\n"
+            f"Vitals: BP {sys}/{dia} | PRV {hrv:.1f}ms\n"
             f"Location: {loc}\n"
             "Please dispatch help immediately."
         )
-        # Twilio's default Python client is synchronous. In a high-throughput system, 
-        # this blocking call can be offloaded to a thread pool, but it is acceptable here.
-        twilio_client.messages.create(
-            body=msg,
-            from_=os.getenv("TWILIO_PHONE_NUMBER"),
-            to=emergency_contact,
-        )
+        
+        # Offload the blocking sync call to a separate thread
+        await asyncio.to_thread(_send_twilio_sync, msg, emergency_contact)
         logger.info("Emergency SMS sent for patient %s to %s", patient_id, emergency_contact)
-    except Exception as e:
+
+    except TwilioRestException as e:
         logger.error("Twilio SMS FAILED for patient %s (contact: %s): %s", patient_id, emergency_contact, e)
-        # Safely await the DB updates inside the async background task
         latest_state = await get_db_row("patients", patient_id)
         latest_state["alert_failure"] = str(e)
         await save_db_row("patients", patient_id, latest_state)
+    except Exception as e:
+        logger.error("Unexpected error sending SMS for patient %s: %s", patient_id, e)
 
 # --- API ENDPOINTS ---
 
@@ -229,9 +247,8 @@ async def root():
     return {
         "app": "StrokeGuard API Gateway",
         "status": "online",
-        "version": "2.2.0"
+        "version": "2.2.1"
     }
-    
     
 @app.post("/api/v1/patient/profile")
 async def update_profile(payload: ProfilePayload):
@@ -248,19 +265,19 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
         )
 
     try:
-        sdnn = calculate_sdnn(payload.pulse_rate_history)
+        rmssd = calculate_rmssd(payload.pulse_rate_history)
     except ValueError as e:
-        logger.error("SDNN calculation failed unexpectedly for %s: %s", payload.patient_id, e)
-        sdnn = payload.prv_score
+        logger.error("RMSSD calculation failed unexpectedly for %s: %s", payload.patient_id, e)
+        rmssd = payload.prv_score
 
-    if abs(sdnn - payload.prv_score) > 10:
-        logger.warning("SDNN mismatch for patient %s: backend=%.1f ms, client=%.1f ms", payload.patient_id, sdnn, payload.prv_score)
+    if abs(rmssd - payload.prv_score) > 10:
+        logger.warning("RMSSD mismatch for patient %s: backend=%.1f ms, client=%.1f ms", payload.patient_id, rmssd, payload.prv_score)
 
     final_status = calculate_composite_risk(
         payload.aha_lifestyle_score,
         payload.systolic,
         payload.diastolic,
-        sdnn,
+        rmssd,
         payload.is_exercising,
     )
 
@@ -275,7 +292,7 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
     if final_status == "YELLOW":
         if current_time - ai_last_gen_time > 300:
             ai_advice = await generate_ai_coach(
-                payload.patient_id, payload.systolic, payload.diastolic, sdnn, payload.aha_lifestyle_score
+                payload.patient_id, payload.systolic or 120, payload.diastolic or 80, rmssd, payload.aha_lifestyle_score
             )
             ai_last_gen_time = current_time
             logger.info("Generated new AI advice for %s", payload.patient_id)
@@ -283,16 +300,15 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
             logger.info("Skipped AI generation for %s (on cooldown)", payload.patient_id)
         consecutive_green = 0
 
-
     if final_status == "RED":
         ai_advice = "CRITICAL ALERT: Severe vital escalation detected. Emergency contacts have been notified. Please seek immediate medical assistance."
         if not sms_sent:
             background_tasks.add_task(
                 send_emergency_sms,
                 payload.patient_id,
-                payload.systolic,
-                payload.diastolic,
-                sdnn,
+                payload.systolic or 120,
+                payload.diastolic or 80,
+                rmssd,
                 payload.latitude,
                 payload.longitude,
                 profile["emergency_contact"],
@@ -310,9 +326,9 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
     
     new_state = {
         "status": final_status,
-        "hrv": sdnn,
+        "hrv": rmssd,
         "hrv_client": payload.prv_score,
-        "bp": f"{payload.systolic}/{payload.diastolic}",
+        "bp": f"{payload.systolic or 120}/{payload.diastolic or 80}",
         "sms_sent": sms_sent,
         "ai_advice": ai_advice,
         "ai_last_gen_time": ai_last_gen_time,
@@ -326,7 +342,7 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
 
     logger.info(
         "SYNC [%s]: ID:%s | BP:%s/%s | HRV(backend)=%.1f HRV(client)=%.1f | Status:%s",
-        payload.mode, payload.patient_id, payload.systolic, payload.diastolic, sdnn, payload.prv_score, final_status
+        payload.mode, payload.patient_id, payload.systolic, payload.diastolic, rmssd, payload.prv_score, final_status
     )
     return {"status": final_status, "ai_coach": ai_advice}
 
