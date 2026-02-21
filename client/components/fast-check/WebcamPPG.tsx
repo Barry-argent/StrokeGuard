@@ -387,14 +387,12 @@ export default function WebcamPPG({
     : signalQuality === "poor" ? "● Poor Signal"
     : "● Waiting...";
 
-  if (isCompleted) return null;
-
   return (
     <div
       className="flex flex-col items-center justify-center w-full min-h-[280px] h-full relative"
       style={{ backgroundColor: "#0F172A", padding: "16px" }}
     >
-      {!isScanning && (
+      {!isScanning && !isCompleted && (
         <div className="flex flex-col items-center justify-center h-full space-y-4">
           <p className="text-slate-300 text-sm text-center px-4">
             We need camera access to measure your pulse rate and PRV for the daily check.
@@ -404,7 +402,7 @@ export default function WebcamPPG({
             className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-full shadow-lg transition-colors flex items-center gap-2"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2-2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
               <circle cx="12" cy="13" r="3"/>
             </svg>
             Start Camera Scan
@@ -434,11 +432,11 @@ export default function WebcamPPG({
         />
       </div>
 
-      {isScanning && (
+      {(isScanning || isCompleted) && (
         <>
           <div
             style={{
-              ...qualityStyles[signalQuality],
+              ...qualityStyles[qualityLabel === "● Waiting..." && isCompleted ? "good" : signalQuality],
               display: "inline-block",
               padding: "4px 14px",
               borderRadius: "100px",
@@ -449,11 +447,11 @@ export default function WebcamPPG({
               letterSpacing: "0.3px",
             }}
           >
-            {qualityLabel}
+            {isCompleted ? "● Scan Complete" : qualityLabel}
           </div>
 
           <div style={{ marginTop: "12px", textAlign: "center" }}>
-            <span style={{ color: "#EF4444", fontSize: "36px", fontFamily: "monospace", fontWeight: "bold" }}>
+             <span style={{ color: isCompleted ? "#10B981" : "#EF4444", fontSize: "36px", fontFamily: "monospace", fontWeight: "bold" }}>
               {currentBpm}
             </span>
             <span style={{ color: "#94A3B8", fontSize: "14px", marginLeft: "6px" }}>pulse/min</span>
@@ -462,7 +460,9 @@ export default function WebcamPPG({
           <p style={{ color: "#64748B", fontSize: "12px", marginTop: "4px" }}>
             PRV computed from pulse intervals · Source: webcam rPPG
           </p>
-          <p style={{ color: "#94A3B8", fontSize: "13px", marginTop: "6px" }}>{status}</p>
+          <p style={{ color: "#94A3B8", fontSize: "13px", marginTop: "6px" }}>
+            {isCompleted ? "Values saved to your dashboard." : status}
+          </p>
         </>
       )}
     </div>

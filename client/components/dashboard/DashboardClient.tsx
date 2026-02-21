@@ -138,6 +138,8 @@ export function DashboardClient({
   // ── Stroke monitoring (Quick Check + Active Monitoring) ───────────────
   const monitoring = useStrokeMonitoring(riskScore, monitoringSessions);
 
+  const lastSession = monitoringSessions?.[0] || null;
+
   // Stable callback ref so WebcamPPG doesn't re-render every time
   const handleVitals = useCallback(
     (pr: number, prv: number) => monitoring.receiveVitals(pr, prv),
@@ -217,8 +219,8 @@ export function DashboardClient({
             <div className="-mx-4 sm:-mx-6 lg:-mx-8">
               <DashboardGreeting userName={userName} />
               <LiveVitalsStrip 
-                pulseRate={monitoring.sessionPulseRate} 
-                prv={monitoring.sessionPRV} 
+                pulseRate={monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null} 
+                prv={monitoring.sessionPRV ?? lastSession?.avgPrv ?? null} 
                 spO2={null} 
               />
             </div>
@@ -230,15 +232,15 @@ export function DashboardClient({
               {/* Stroke Score Card — dynamic, session-based */}
               <StrokeScoreCard
                 mode={monitoring.mode}
-                strokeScore={monitoring.strokeScore}
+                strokeScore={monitoring.strokeScore ?? lastSession?.finalScore ?? computeRiskScore(healthProfile)}
                 countdown={monitoring.countdown}
-                sessionPulseRate={monitoring.sessionPulseRate}
-                sessionPRV={monitoring.sessionPRV}
+                sessionPulseRate={monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null}
+                sessionPRV={monitoring.sessionPRV ?? lastSession?.avgPrv ?? null}
                 checkResult={monitoring.checkResult}
                 streak={monitoring.streak}
                 activeMinutesLeft={monitoring.activeMinutesLeft}
-                triageStatus={monitoring.triageStatus}
-                aiAdvice={monitoring.aiAdvice}
+                triageStatus={monitoring.triageStatus ?? lastSession?.triageStatus ?? null}
+                aiAdvice={monitoring.aiAdvice ?? lastSession?.aiAdvice ?? null}
                 alertFailure={monitoring.alertFailure}
                 uiAction={monitoring.uiAction}
                 onStartQuickCheck={monitoring.startQuickCheck}
@@ -263,7 +265,7 @@ export function DashboardClient({
                   averageSystolic={systolic ?? 0}
                   averageDiastolic={diastolic ?? 0}
                 />
-                <RecentActivityFeed />
+                <RecentActivityFeed sessions={monitoringSessions} />
               </div>
 
               {/* RIGHT COLUMN */}
@@ -304,7 +306,7 @@ export function DashboardClient({
                   riskFactor={riskFactor}
                   recommendation={recommendation}
                 />
-                <HealthTipsCard />
+                <HealthTipsCard aiAdvice={monitoring.aiAdvice} />
               </div>
             </div>
 
