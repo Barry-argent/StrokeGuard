@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { ManageContacts } from '@/components/contacts/ManageContacts';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
+import type { EmergencyContact } from '@prisma/client';
 
 export default async function ContactsPage() {
   const session = await auth();
@@ -35,7 +36,7 @@ export default async function ContactsPage() {
             </div>
           </div>
           
-          <ManageContacts initialContacts={contacts.map(c => ({
+          <ManageContacts initialContacts={contacts.map((c: EmergencyContact) => ({
             ...c,
             initials: c.name.split(" ").map(n => n[0]).join("").toUpperCase()
           }))} />
