@@ -163,7 +163,7 @@ async def generate_ai_coach(patient_id: str, sys: int, dia: int, hrv: float, aha
 
     try:
         response = await genai_client.aio.models.generate_content(
-            model="gemini-1.5-pro",
+            model="gemini-2.5-flash",
             contents=(
                 f"Patient: {profile.get('name')}, {profile.get('age')}. "
                 f"History: {profile.get('history')}. "
@@ -265,18 +265,21 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
             logger.info("Skipped AI generation for %s (on cooldown)", payload.patient_id)
         consecutive_green = 0
 
-    if final_status == "RED" and not sms_sent:
-        background_tasks.add_task(
-            send_emergency_sms,
-            payload.patient_id,
-            payload.systolic,
-            payload.diastolic,
-            sdnn,
-            payload.latitude,
-            payload.longitude,
-            profile["emergency_contact"],
-        )
-        sms_sent = True
+
+    if final_status == "RED":
+        ai_advice = "CRITICAL ALERT: Severe vital escalation detected. Emergency contacts have been notified. Please seek immediate medical assistance."
+        if not sms_sent:
+            background_tasks.add_task(
+                send_emergency_sms,
+                payload.patient_id,
+                payload.systolic,
+                payload.diastolic,
+                sdnn,
+                payload.latitude,
+                payload.longitude,
+                profile["emergency_contact"],
+            )
+            sms_sent = True
         consecutive_green = 0
 
     if final_status == "GREEN":
