@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 interface DayData {
   date: number;
@@ -17,25 +17,51 @@ const statusConfig = {
   'no-data': { bg: '#F8FAFC', text: '#CBD5E1', label: 'No Data' },
 };
 
-const generateCalendarData = (): DayData[] => {
-  const redDays = [3, 11, 19];
-  const amberDays = [5, 8, 14, 16, 23, 25, 27];
-  return Array.from({ length: 28 }, (_, i) => {
-    const date = i + 1;
-    let status: DayData['status'] = 'healthy';
-    let sdnn = 55 + Math.floor(Math.random() * 20);
-    if (redDays.includes(date)) { status = 'at-risk'; sdnn = 15 + Math.floor(Math.random() * 5); }
-    else if (amberDays.includes(date)) { status = 'borderline'; sdnn = 25 + Math.floor(Math.random() * 20); }
-    return { date, status, sdnn, isToday: date === new Date().getDate() };
-  });
-};
-
 const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const calendarData = generateCalendarData();
 
-export function HRVCalendar() {
+export function HRVCalendar({ sessions = [] }: { sessions?: any[] }) {
   const [hoveredDay, setHoveredDay] = useState<DayData | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  const today = new Date();
+  const currentMonthName = today.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  // Generate calendar data from real sessions
+  const calendarData = useMemo(() => {
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    
+    // Group sessions by day of the month
+    const sessionsByDay = new Map<number, number[]>();
+    sessions.forEach(s => {
+      const d = new Date(s.startedAt);
+      if (d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
+        const day = d.getDate();
+        if (s.avgPrv != null) {
+          const existing = sessionsByDay.get(day) || [];
+          sessionsByDay.set(day, [...existing, s.avgPrv]);
+        }
+      }
+    });
+
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const date = i + 1;
+      const isToday = date === today.getDate();
+      const dayPrvs = sessionsByDay.get(date);
+      
+      let status: DayData['status'] = 'no-data';
+      let sdnn: number | undefined = undefined;
+
+      if (dayPrvs && dayPrvs.length > 0) {
+        // Use average of that day's sdnn readings
+        sdnn = Math.round(dayPrvs.reduce((acc, val) => acc + val, 0) / dayPrvs.length);
+        if (sdnn >= 50) status = 'healthy';
+        else if (sdnn >= 20) status = 'borderline';
+        else status = 'at-risk';
+      }
+
+      return { date, status, sdnn, isToday };
+    });
+  }, [sessions]);
 
   const handleMouseEnter = (day: DayData, event: React.MouseEvent) => {
     if (day.status !== 'no-data') {
@@ -48,13 +74,13 @@ export function HRVCalendar() {
   return (
     <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-[24px]">
       {/* Card header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 relative">
         <h3 className="font-sans font-semibold text-[16px] text-[#0F172A]">PRV History</h3>
         <div className="flex items-center gap-4 absolute left-1/2 -translate-x-1/2">
           <button className="p-1 hover:bg-slate-50 rounded transition-colors text-[#94A3B8]">
             <ChevronLeft size={16} />
           </button>
-          <span className="font-sans font-medium text-[14px] text-[#0F172A]">February 2026</span>
+          <span className="font-sans font-medium text-[14px] text-[#0F172A]">{currentMonthName}</span>
           <button className="p-1 hover:bg-slate-50 rounded transition-colors text-[#94A3B8]">
             <ChevronRight size={16} />
           </button>
@@ -118,7 +144,7 @@ export function HRVCalendar() {
             className="fixed z-50 bg-white rounded-lg border border-[#E2E8F0] px-3 py-2 pointer-events-none shadow-[0_4px_16px_rgba(0,0,0,0.08)]" 
             style={{ left: mousePosition.x, top: mousePosition.y - 60, transform: 'translateX(-50%)' }}
           >
-            <p className="font-sans font-semibold text-xs text-[#0F172A] mb-0.5">Feb {hoveredDay.date}</p>
+            <p className="font-sans font-semibold text-xs text-[#0F172A] mb-0.5">{today.toLocaleString('default', { month: 'short' })} {hoveredDay.date}</p>
             <p className="font-mono text-xs" style={{ color: statusConfig[hoveredDay.status].text }}>
               {hoveredDay.sdnn} ms
             </p>

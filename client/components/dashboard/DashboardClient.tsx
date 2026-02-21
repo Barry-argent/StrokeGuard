@@ -130,8 +130,6 @@ export function DashboardClient({
 
   // PRV is now sourced from the webcam rPPG session in /fast-check
   // No Bluetooth / smartwatch dependency anymore
-  const sdnn = null as number | null;
-  const hrvStatus: 'healthy' | 'borderline' | 'elevated' = 'healthy';
   const showFastCheckAlert = false;
   const userInitials = getInitials(userName || 'User');
 
@@ -139,6 +137,17 @@ export function DashboardClient({
   const monitoring = useStrokeMonitoring(riskScore, monitoringSessions);
 
   const lastSession = monitoringSessions?.[0] || null;
+
+  // Derive PRV/HRV metrics directly from live webcam scan or session history
+  const sdnn = monitoring.sessionPRV ?? lastSession?.avgPrv ?? null;
+  const restingHR = monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null;
+  const hrvi = sdnn !== null ? parseFloat((sdnn / 15).toFixed(2)) : null;
+
+  const sparklineData = monitoringSessions
+    .slice(0, 10)
+    .map((s: any) => s.avgPrv)
+    .filter((val: any) => typeof val === 'number' && val > 0)
+    .reverse();
 
   // Stable callback ref so WebcamPPG doesn't re-render every time
   const handleVitals = useCallback(
@@ -250,13 +259,13 @@ export function DashboardClient({
 
                 <HRVOrbDetailCard
                   sdnn={sdnn}
-                  hrvi={0}
-                  restingHR={null}
+                  hrvi={hrvi}
+                  restingHR={restingHR}
                   spO2={null}
                   deviceName={null}
-                  sparklineData={[58, 62, 55, 60, 64, 59, 62]}
+                  sparklineData={sparklineData.length > 0 ? sparklineData : [58, 62, 55, 60, 64, 59, 62]}
                 />
-                <HRVCalendar />
+                <HRVCalendar sessions={monitoringSessions} />
                 <BloodPressureLog
                   systolic={systolic}
                   diastolic={diastolic}
