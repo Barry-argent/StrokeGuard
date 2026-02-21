@@ -5,16 +5,17 @@ const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || 'http://127.0.0.1:8000'
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await auth();
     // Security check: only allow fetching own status
-    if (!session?.user?.id || session.user.id !== params.id) {
+    if (!session?.user?.id || session.user.id !== id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const backendRes = await fetch(`${EXTERNAL_API_URL}/api/v1/patient/${params.id}/status`, {
+    const backendRes = await fetch(`${EXTERNAL_API_URL}/api/v1/patient/${id}/status`, {
       method: "GET",
       headers: { "Content-Type": "application/json" }
     });
