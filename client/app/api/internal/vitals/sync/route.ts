@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import prisma from '@/lib/prisma';
 
-const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || 'http://127.0.0.1:8000';
+const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || 'https://strokeguard-endo.onrender.com';
 
 // Registers / refreshes the patient's profile on the Python backend.
 // Called automatically before a sync if the backend returns 404.

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 
-const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || 'http://127.0.0.1:8000';
+const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || 'https://strokeguard-endo.onrender.com';
 
 export async function GET(
   req: Request,
