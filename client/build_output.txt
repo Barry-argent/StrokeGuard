@@ -1,0 +1,54 @@
+
+> client@0.1.0 build C:\Users\pc\OneDrive\Desktop\Usii's works\StrokeGuard\client
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local, .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.4s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/28) ...
+  Generating static pages using 11 workers (7/28) 
+  Generating static pages using 11 workers (14/28) 
+  Generating static pages using 11 workers (21/28) 
+✓ Generating static pages using 11 workers (28/28) in 975.3ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/auth/register
+├ ƒ /api/internal/patient/[id]/status
+├ ƒ /api/internal/patient/profile
+├ ƒ /api/internal/vitals/status
+├ ƒ /api/internal/vitals/sync
+├ ƒ /api/user/emergency-contacts
+├ ƒ /api/user/emergency-contacts/[id]
+├ ƒ /api/user/health-profile
+├ ƒ /api/user/me
+├ ƒ /api/user/onboarding/complete
+├ ƒ /contacts
+├ ƒ /dashboard
+├ ƒ /education
+├ ○ /fast-check
+├ ƒ /history
+├ ƒ /onboarding/emergency-contacts
+├ ○ /onboarding/health-profile
+├ ○ /onboarding/permissions
+├ ○ /onboarding/risk-assessment
+├ ○ /onboarding/setup-complete
+├ ○ /onboarding/smartwatch-pairing
+├ ƒ /risk-score
+├ ƒ /settings
+├ ○ /signin
+├ ○ /signup
+└ ƒ /sos
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
