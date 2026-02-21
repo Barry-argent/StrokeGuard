@@ -265,57 +265,59 @@ export default function WebcamPPG({
     else if (isActiveExternally === false && isScanning) stopCamera();
   }, [isActiveExternally, isScanning, startCamera, stopCamera]);
 
-  // ── Sync to backend every 5 seconds ──────────────────────────────────────
+  // ── Sync to backend every 5 seconds (RMSSD-based) ───────────────────────
   useEffect(() => {
     if (!isScanning) return;
 
     const syncInterval = setInterval(() => {
       syncCountRef.current += 1;
-
       const times = pulseTimesRef.current;
-      
-      // If we have valid pulses in this interval, process them
+
+      // We need at least 5 beats to calculate a meaningful interval set for this window
       if (times.length >= 5) {
         const ppIntervals: number[] = [];
         const pulseRates: number[] = [];
 
         for (let i = 1; i < times.length; i++) {
           const interval = Math.round(times[i] - times[i - 1]);
+
+          // CLINICAL FILTERING: 400ms (150 BPM) → 1500ms (40 BPM)
+          // Filters out jitter / false peaks from camera noise.
           if (interval > MIN_INTERVAL_MS && interval < MAX_INTERVAL_MS) {
             ppIntervals.push(interval);
             pulseRates.push(parseFloat((60000 / interval).toFixed(1)));
           }
         }
 
-        if (pulseRates.length >= 3) {
-          const mean = ppIntervals.reduce((a, b) => a + b, 0) / ppIntervals.length;
-          const variance = ppIntervals.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / ppIntervals.length;
-          const prvScore = parseFloat(Math.sqrt(variance).toFixed(2));
-          const avgPulseRate = parseFloat(
-            (pulseRates.reduce((a, b) => a + b, 0) / pulseRates.length).toFixed(1),
-          );
+        if (ppIntervals.length >= 3) {
+          // RMSSD: Root Mean Square of Successive Differences
+          let sumSquaredDiffs = 0;
+          for (let i = 1; i < ppIntervals.length; i++) {
+            sumSquaredDiffs += Math.pow(ppIntervals[i] - ppIntervals[i - 1], 2);
+          }
+          const currentRmssd = Math.sqrt(sumSquaredDiffs / (ppIntervals.length - 1));
 
           accumulatedPulseRatesRef.current.push(...pulseRates);
-          accumulatedPrvRef.current.push(prvScore);
+          accumulatedPrvRef.current.push(currentRmssd);
 
-          if (onVitalsUpdate) onVitalsUpdate(avgPulseRate, prvScore);
+          if (onVitalsUpdate) {
+            const latestBpm = pulseRates[pulseRates.length - 1];
+            onVitalsUpdate(latestBpm, currentRmssd);
+          }
         }
       }
 
-      // ── Stop condition: 6 intervals × 5s = 30s strict time ──
+      // ── FINAL SYNC at 30 seconds ─────────────────────────────────────────
       if (syncCountRef.current >= SYNC_EVERY_N) {
         setIsCompleted(true);
-        // FIX 2: stopCamera is stable via useCallback — safe to call here
         stopCamera();
-        setStatus("Finalizing sync...");
+        setStatus("Finalizing clinical analysis...");
 
-        const finalPulseRates = [...accumulatedPulseRatesRef.current];
+        const finalHistory = [...accumulatedPulseRatesRef.current];
 
-        // FIX 3: Abort if we have insufficient real data rather than padding
-        // with duplicates (which artificially collapses PRV toward zero).
-        if (finalPulseRates.length < 10) {
-          console.warn("[WebcamPPG] Insufficient pulse data — aborting sync.");
-          setStatus("Not enough signal detected. Please try again in better lighting.");
+        // Guard: < 10 beats → RMSSD isn't statistically sound
+        if (finalHistory.length < 10) {
+          setStatus("Signal quality too low. Please stay still and try again.");
           if (onComplete) onComplete();
           return;
         }
@@ -323,7 +325,7 @@ export default function WebcamPPG({
         const finalPrv =
           accumulatedPrvRef.current.reduce((a, b) => a + b, 0) /
           accumulatedPrvRef.current.length || 0;
-        const currentPulseRate = finalPulseRates[finalPulseRates.length - 1];
+        const currentPulseRate = finalHistory[finalHistory.length - 1];
 
         // FIX 4: Read from ref — always has the latest healthProfile value
         const hp = healthProfileRef.current;
@@ -338,17 +340,17 @@ export default function WebcamPPG({
         const riskResult = calculateFinalRiskScore(baseline, {
           pulseRate: currentPulseRate,
           sdnnMs: finalPrv,
-          pulseRateHistory: finalPulseRates,
+          pulseRateHistory: finalHistory,
           isExercising: false,
         });
 
-        console.info("[WebcamPPG] Risk computed:", riskResult);
+        console.info("[WebcamPPG] RMSSD Risk computed:", riskResult);
 
         fetch("/api/internal/vitals/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            pulseRates: finalPulseRates,
+            pulseRates: finalHistory,
             prvScore: finalPrv,
             isExercising: false,
             source: "rppg_webcam",
@@ -373,8 +375,8 @@ export default function WebcamPPG({
     }, 5000);
 
     return () => clearInterval(syncInterval);
-    // FIX 2: stopCamera is now stable (useCallback) so it's safe as a dep
   }, [isScanning, onVitalsUpdate, onComplete, stopCamera]);
+
 
   // ── Render ────────────────────────────────────────────────────────────────
   const qualityStyles: Record<string, React.CSSProperties> = {
