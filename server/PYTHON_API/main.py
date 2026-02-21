@@ -26,6 +26,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+@app.get("/")
+async def root():
+    return {
+        "app": "StrokeGuard API Gateway",
+        "status": "online",
+        "version": "2.2.0"
+    }
+
 # Modern FastAPI lifespan event to handle async DB initialization
 @asynccontextmanager
 async def lifespan(app: FastAPI):
