@@ -344,7 +344,12 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
         "SYNC [%s]: ID:%s | BP:%s/%s | HRV(backend)=%.1f HRV(client)=%.1f | Status:%s",
         payload.mode, payload.patient_id, payload.systolic, payload.diastolic, rmssd, payload.prv_score, final_status
     )
-    return {"status": final_status, "ai_coach": ai_advice}
+    
+    # FIX APPLIED HERE: Mask the advice if the current reading is GREEN
+    return {
+        "status": final_status, 
+        "ai_coach": ai_advice if final_status != "GREEN" else ""
+    }
 
 @app.get("/api/v1/patient/{patient_id}/status")
 async def get_status(patient_id: str = Path(..., pattern=PATIENT_ID_PATTERN, description="Patient identifier")):
