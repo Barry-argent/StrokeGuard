@@ -131,7 +131,7 @@ export default function PermissionsPage() {
               <div className="h-full bg-[#0EA5E9] w-[85%] transition-all duration-300" />
             </div>
             <p className="text-[#64748B] text-[11px] tracking-wider font-mono">
-              STEP 6 OF 7
+              STEP 5 OF 6
             </p>
           </div>
 

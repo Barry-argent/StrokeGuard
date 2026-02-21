@@ -128,7 +128,7 @@ export async function saveRiskAssessment(formData: FormData) {
   }
 
   revalidatePath("/onboarding/risk-assessment");
-  redirect("/onboarding/smartwatch-pairing");
+  redirect("/onboarding/permissions");
 }
 
 const ContactSchema = z.object({
