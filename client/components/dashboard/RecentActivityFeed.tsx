@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, TrendingUp, AlertTriangle, Watch, Activity } from 'lucide-react';
+import { CheckCircle, TrendingUp, AlertTriangle, Watch, Activity, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
 // Native date utilities to replace date-fns
@@ -33,11 +33,12 @@ const formatTime = (date: Date) => {
 
 interface RecentActivityFeedProps {
   sessions: any[];
+  completedTasks?: string[];
 }
 
 interface ActivityItem {
   id: string;
-  type: 'fast-check' | 'risk-score' | 'spo2-dip' | 'watch-sync';
+  type: 'fast-check' | 'risk-score' | 'spo2-dip' | 'watch-sync' | 'task-completed';
   title: string;
   description: string;
   time: string;
@@ -46,6 +47,7 @@ interface ActivityItem {
 
 const getIconConfig = (type: ActivityItem['type']) => {
   switch (type) {
+    case 'task-completed': return { icon: CheckCircle2, color: '#10B981', bg: '#D1FAE5' };
     case 'fast-check': return { icon: CheckCircle, color: '#10B981', bg: '#ECFDF5' };
     case 'risk-score': return { icon: TrendingUp, color: '#0EA5E9', bg: '#EFF6FF' };
     case 'spo2-dip': return { icon: AlertTriangle, color: '#F59E0B', bg: '#FFFBEB' };
@@ -54,11 +56,11 @@ const getIconConfig = (type: ActivityItem['type']) => {
   }
 };
 
-export function RecentActivityFeed({ sessions }: RecentActivityFeedProps) {
+export function RecentActivityFeed({ sessions, completedTasks = [] }: RecentActivityFeedProps) {
   const [activeTab, setActiveTab] = useState<'today' | 'week'>('today');
 
   // Convert DB sessions into ActivityItems
-  const activities: ActivityItem[] = sessions.map(s => {
+  const sessionActivities: ActivityItem[] = sessions.map(s => {
     const isScan = s.mode === 'QUICK_CHECK' || s.mode === 'ACTIVE';
     const status = s.triageStatus;
     
@@ -90,7 +92,20 @@ export function RecentActivityFeed({ sessions }: RecentActivityFeedProps) {
     };
   });
 
-  const filteredActivities = activities.filter(a => 
+  // Convert completed tasks into ActivityItems (assuming they were completed "just now")
+  const taskActivities: ActivityItem[] = completedTasks.map((taskText, idx) => ({
+    id: `task-${idx}-${Date.now()}`,
+    type: 'task-completed',
+    title: 'Goal Completed',
+    description: taskText,
+    time: formatTime(new Date()), // Display as just completed
+    dateObj: new Date()
+  }));
+
+  // Merge and sort
+  const allActivities = [...taskActivities, ...sessionActivities].sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+
+  const filteredActivities = allActivities.filter(a => 
     activeTab === 'today' ? isToday(a.dateObj) : isThisWeek(a.dateObj)
   );
 

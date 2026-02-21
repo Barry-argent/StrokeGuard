@@ -63,6 +63,7 @@ const LOCAL_SCORE_GRACE_MS = 60_000; // 60 s — polling won't override a fresh 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 export function useStrokeMonitoring(
   baseRiskScore: number,
+  isSignalGood: boolean,
   monitoringSessions: any[] = [],
 ): StrokeMonitoringState {
   const [mode, setMode] = useState<MonitoringMode>('idle');
@@ -210,9 +211,13 @@ export function useStrokeMonitoring(
   // ── Countdown timer ────────────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== 'quick-check' || countdown === null || countdown <= 0) return;
+    
+    // Pause the countdown if the camera cannot see a face or lighting is bad
+    if (!isSignalGood) return;
+
     const timer = setTimeout(() => setCountdown((c) => (c && c > 0 ? c - 1 : 0)), 1000);
     return () => clearTimeout(timer);
-  }, [mode, countdown]);
+  }, [mode, countdown, isSignalGood]);
 
   // ── Active monitoring timer ────────────────────────────────────────────────
   useEffect(() => {

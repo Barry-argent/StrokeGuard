@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Square, Activity, Clock, Power } from 'lucide-react';
+import { Play, Square, Activity, Clock, Power, Sparkles } from 'lucide-react';
 import type { CheckResult, MonitoringMode } from './useStrokeMonitoring';
 import { useMemo } from 'react';
 
@@ -23,14 +23,16 @@ interface StrokeScoreCardProps {
 }
 
 function scoreConfig(score: number | null, triageStatus: 'GREEN' | 'YELLOW' | 'RED' | null) {
-  if (triageStatus === 'GREEN') return { color: '#10B981', bg: '#ECFDF5', label: 'LOW RISK', ring: '#10B981' };
-  if (triageStatus === 'YELLOW') return { color: '#F59E0B', bg: '#FFFBEB', label: 'MODERATE RISK', ring: '#F59E0B' };
+  // If backend explicitly flags an elevated risk, let it override the visual
   if (triageStatus === 'RED') return { color: '#EF4444', bg: '#FEF2F2', label: 'HIGH RISK', ring: '#EF4444' };
+  if (triageStatus === 'YELLOW') return { color: '#F59E0B', bg: '#FFFBEB', label: 'MODERATE RISK', ring: '#F59E0B' };
   
+  // Otherwise, derive color strictly from the granular score value
   const displayScore = score ?? 0;
   if (displayScore === 0 && score === null) return { color: '#94A3B8', bg: '#F8FAFC', label: 'NO DATA', ring: '#E2E8F0' };
-  if (displayScore < 30) return { color: '#10B981', bg: '#ECFDF5', label: 'LOW RISK', ring: '#10B981' };
-  if (displayScore < 60) return { color: '#F59E0B', bg: '#FFFBEB', label: 'MODERATE RISK', ring: '#F59E0B' };
+  
+  if (displayScore >= 70) return { color: '#10B981', bg: '#ECFDF5', label: 'LOW RISK', ring: '#10B981' };
+  if (displayScore >= 40) return { color: '#F59E0B', bg: '#FFFBEB', label: 'MODERATE RISK', ring: '#F59E0B' };
   return { color: '#EF4444', bg: '#FEF2F2', label: 'HIGH RISK', ring: '#EF4444' };
 }
 
@@ -107,9 +109,9 @@ export function StrokeScoreCard({
       
       <div className="p-[24px] flex-1">
         {aiAdvice && (
-          <div className="mb-4 p-3 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-xl border border-indigo-100 flex items-start gap-2">
-            <span className="text-lg">🤖</span>
-            <span className="font-sans">{aiAdvice}</span>
+          <div className="mb-5 p-3 bg-gradient-to-r from-indigo-50 to-white text-indigo-700 text-xs font-medium rounded-xl border border-indigo-100/60 flex items-start gap-2 shadow-sm">
+            <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+            <span className="font-sans line-clamp-2 leading-relaxed">{aiAdvice}</span>
           </div>
         )}
 

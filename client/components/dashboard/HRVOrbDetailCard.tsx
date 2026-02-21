@@ -1,12 +1,11 @@
 "use client";
 
-import { ShieldCheck, Clock, Activity, Heart, Droplet, MoveUpRight } from 'lucide-react';
+import { ShieldCheck, Clock, Activity, Heart, MoveUpRight } from 'lucide-react';
 
 interface HRVOrbDetailCardProps {
   sdnn: number | null;
   hrvi: number | null;
   restingHR: number | null;
-  spO2: number | null;
   deviceName?: string | null;
   sparklineData?: number[];
 }
@@ -54,7 +53,6 @@ export function HRVOrbDetailCard({
   sdnn,
   hrvi,
   restingHR,
-  spO2,
   sparklineData = [58, 62, 55, 60, 64, 59, 62]
 }: HRVOrbDetailCardProps) {
   // Safe min/max calculation
@@ -115,14 +113,6 @@ export function HRVOrbDetailCard({
                 <span className="font-sans font-medium text-[13px] text-[#64748B]">Pulse Rate</span>
               </div>
               <span className="font-mono text-[13px] text-[#0F172A]">{restingHR !== null ? restingHR : '--'} pulse/min</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Droplet size={14} className="text-[#64748B]" />
-                <span className="font-sans font-medium text-[13px] text-[#64748B]">SpO2</span>
-              </div>
-              <span className="font-mono text-[13px] text-[#0F172A]">{spO2 !== null ? `${spO2} %` : '-- %'}</span>
             </div>
           </div>
 

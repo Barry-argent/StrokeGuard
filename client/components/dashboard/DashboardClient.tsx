@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
+import toast from 'react-hot-toast';
 import WebcamPPG from '@/components/fast-check/WebcamPPG';
 import { useStrokeMonitoring } from './useStrokeMonitoring';
 import { StrokeScoreCard } from './StrokeScoreCard';
@@ -112,6 +113,8 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
+  const [signalQuality, setSignalQuality] = useState<'waiting' | 'poor' | 'good'>('waiting');
 
   // Close sidebar when navigating (mobile)
   useEffect(() => {
@@ -134,7 +137,7 @@ export function DashboardClient({
   const userInitials = getInitials(userName || 'User');
 
   // ── Stroke monitoring (Quick Check + Active Monitoring) ───────────────
-  const monitoring = useStrokeMonitoring(riskScore, monitoringSessions);
+  const monitoring = useStrokeMonitoring(riskScore, signalQuality === 'good', monitoringSessions);
 
   const lastSession = monitoringSessions?.[0] || null;
 
@@ -156,13 +159,19 @@ export function DashboardClient({
     [monitoring.receiveVitals]
   );
 
-  // Called by WebcamPPG when scan finishes — passes the computed score directly
-  // so the dashboard updates immediately without waiting for the 30s polling cycle.
+  // Called by WebcamPPG when scan finishes
   const handleScanComplete = useCallback(
     (finalScore?: number) => monitoring.cancelQuickCheck(finalScore),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [monitoring.cancelQuickCheck]
   );
+
+  const handleTaskComplete = useCallback((taskText: string) => {
+    setCompletedTasks((prev: string[]) => [...prev, taskText]);
+    toast.success("Task completed! Added to your recent activity.", {
+      icon: "✅",
+    });
+  }, []);
 
 
   const bpHistory: number[][] =
@@ -230,7 +239,6 @@ export function DashboardClient({
               <LiveVitalsStrip 
                 pulseRate={monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null} 
                 prv={monitoring.sessionPRV ?? lastSession?.avgPrv ?? null} 
-                spO2={null} 
               />
             </div>
 
@@ -261,7 +269,6 @@ export function DashboardClient({
                   sdnn={sdnn}
                   hrvi={hrvi}
                   restingHR={restingHR}
-                  spO2={null}
                   deviceName={null}
                   sparklineData={sparklineData.length > 0 ? sparklineData : [58, 62, 55, 60, 64, 59, 62]}
                 />
@@ -274,7 +281,7 @@ export function DashboardClient({
                   averageSystolic={systolic ?? 0}
                   averageDiastolic={diastolic ?? 0}
                 />
-                <RecentActivityFeed sessions={monitoringSessions} />
+                <RecentActivityFeed sessions={monitoringSessions} completedTasks={completedTasks} />
               </div>
 
               {/* RIGHT COLUMN */}
@@ -300,6 +307,7 @@ export function DashboardClient({
                       onVitalsUpdate={handleVitals}
                       onComplete={handleScanComplete}
                       healthProfile={healthProfile}
+                      onSignalQualityChange={setSignalQuality}
                     />
                   </div>
                 </div>
@@ -315,7 +323,11 @@ export function DashboardClient({
                   riskFactor={riskFactor}
                   recommendation={recommendation}
                 />
-                <HealthTipsCard aiAdvice={monitoring.aiAdvice} />
+                <HealthTipsCard 
+                  aiAdvice={monitoring.aiAdvice} 
+                  completedTasks={completedTasks}
+                  onTaskComplete={handleTaskComplete}
+                />
               </div>
             </div>
 

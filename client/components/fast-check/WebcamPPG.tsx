@@ -17,6 +17,7 @@ interface WebcamPPGProps {
   onVitalsUpdate?: (pulseRate: number, prv: number) => void;
   onComplete?: (finalScore?: number) => void;
   healthProfile?: HealthProfile | null;
+  onSignalQualityChange?: (quality: 'waiting' | 'poor' | 'good') => void;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ export default function WebcamPPG({
   onVitalsUpdate,
   onComplete,
   healthProfile,
+  onSignalQualityChange,
 }: WebcamPPGProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,6 +69,11 @@ export default function WebcamPPG({
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+
+  // Propagate signal quality upwards
+  useEffect(() => {
+    onSignalQualityChange?.(signalQuality);
+  }, [signalQuality, onSignalQualityChange]);
 
   // ── Stop camera ──────────────────────────────────────────────────────────
   // FIX 2: Wrapped in useCallback so its reference is stable and can be safely
