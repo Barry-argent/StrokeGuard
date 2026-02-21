@@ -125,16 +125,21 @@ class VitalsPayload(BaseModel):
 
 # --- TRIAGE & AI LOGIC ---
 def calculate_sdnn(bpm_history: List[float]) -> float:
-    """
-    Derive SDNN (ms) from a list of BPM values.
-    Note: For clinical accuracy, deriving RR intervals directly from raw PPG/ECG 
-    timing is superior to converting from averaged BPM. This acts as a reliable 
-    approximation for quick scans.
-    """
+"""Calculates RMSSD (ms) for ultra-short-term HRV analysis."""
     if len(bpm_history) < 2:
-        raise ValueError("Need at least 2 BPM readings to calculate SDNN.")
+        raise ValueError("Need at least 2 readings.")
+    
+    # Convert BPM to RR intervals in milliseconds
     rr_intervals = [60000.0 / bpm for bpm in bpm_history]
-    return statistics.stdev(rr_intervals)
+    
+    # Calculate successive differences
+    squared_diffs = []
+    for i in range(1, len(rr_intervals)):
+        diff = rr_intervals[i] - rr_intervals[i-1]
+        squared_diffs.append(diff ** 2)
+        
+    # Root mean square
+    return math.sqrt(sum(squared_diffs) / len(squared_diffs))
 
 def calculate_composite_risk(aha: int, sys: int, dia: int, hrv_val: float, exercising: bool) -> str:
     if sys >= 180 or dia >= 120:
