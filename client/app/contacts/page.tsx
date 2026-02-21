@@ -38,7 +38,7 @@ export default async function ContactsPage() {
           
           <ManageContacts initialContacts={contacts.map((c: typeof contacts[number]) => ({
             ...c,
-            initials: c.name.split(" ").map(n => n[0]).join("").toUpperCase()
+            initials: c.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
           }))} />
         </div>
       </div>
