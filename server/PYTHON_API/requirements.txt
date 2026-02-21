@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+gunicorn
+aiosqlite
+google-genai
+twilio
+python-dotenv
+pydantic
