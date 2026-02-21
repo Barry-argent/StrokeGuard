@@ -10,8 +10,9 @@ const HealthProfileSchema = z.object({
   weight: z.coerce.number().optional().nullable(),
   country: z.string().optional().nullable(),
   bloodPressure: z.string().optional().nullable(),
-  hasDiabetes: z.boolean().optional(),
-  smokes: z.boolean().optional(),
+  diabetesStatus: z.string().optional().nullable(),
+  smokingStatus: z.string().optional().nullable(),
+  familyHistory: z.string().optional().nullable(),
   activityLevel: z.string().optional().nullable(),
 });
 
@@ -51,7 +52,18 @@ export async function PUT(request: Request) {
       );
     }
 
-    const { dob, biologicalSex, height, weight, country, bloodPressure, hasDiabetes, smokes, activityLevel } = validated.data;
+    const {
+      dob,
+      biologicalSex,
+      height,
+      weight,
+      country,
+      bloodPressure,
+      diabetesStatus,
+      smokingStatus,
+      familyHistory,
+      activityLevel,
+    } = validated.data;
 
     const profileData = {
       dob: dob ? new Date(dob) : null,
@@ -60,8 +72,9 @@ export async function PUT(request: Request) {
       weight: weight ?? undefined,
       country: country ?? undefined,
       bloodPressure: bloodPressure ?? undefined,
-      hasDiabetes: hasDiabetes ?? undefined,
-      smokes: smokes ?? undefined,
+      diabetesStatus: diabetesStatus ?? undefined,
+      smokingStatus: smokingStatus ?? undefined,
+      familyHistory: familyHistory ?? undefined,
       activityLevel: activityLevel ?? undefined,
     };
 
