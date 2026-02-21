@@ -27,13 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@app.get("/")
-async def root():
-    return {
-        "app": "StrokeGuard API Gateway",
-        "status": "online",
-        "version": "2.2.0"
-    }
+
 
 # Modern FastAPI lifespan event to handle async DB initialization
 @asynccontextmanager
@@ -131,16 +125,21 @@ class VitalsPayload(BaseModel):
 
 # --- TRIAGE & AI LOGIC ---
 def calculate_sdnn(bpm_history: List[float]) -> float:
-    """
-    Derive SDNN (ms) from a list of BPM values.
-    Note: For clinical accuracy, deriving RR intervals directly from raw PPG/ECG 
-    timing is superior to converting from averaged BPM. This acts as a reliable 
-    approximation for quick scans.
-    """
+"""Calculates RMSSD (ms) for ultra-short-term HRV analysis."""
     if len(bpm_history) < 2:
-        raise ValueError("Need at least 2 BPM readings to calculate SDNN.")
+        raise ValueError("Need at least 2 readings.")
+    
+    # Convert BPM to RR intervals in milliseconds
     rr_intervals = [60000.0 / bpm for bpm in bpm_history]
-    return statistics.stdev(rr_intervals)
+    
+    # Calculate successive differences
+    squared_diffs = []
+    for i in range(1, len(rr_intervals)):
+        diff = rr_intervals[i] - rr_intervals[i-1]
+        squared_diffs.append(diff ** 2)
+        
+    # Root mean square
+    return math.sqrt(sum(squared_diffs) / len(squared_diffs))
 
 def calculate_composite_risk(aha: int, sys: int, dia: int, hrv_val: float, exercising: bool) -> str:
     if sys >= 180 or dia >= 120:
@@ -224,6 +223,16 @@ async def send_emergency_sms(patient_id: str, sys: int, dia: int, hrv: float, la
         await save_db_row("patients", patient_id, latest_state)
 
 # --- API ENDPOINTS ---
+
+@app.get("/")
+async def root():
+    return {
+        "app": "StrokeGuard API Gateway",
+        "status": "online",
+        "version": "2.2.0"
+    }
+    
+    
 @app.post("/api/v1/patient/profile")
 async def update_profile(payload: ProfilePayload):
     await save_db_row("profiles", payload.patient_id, payload.model_dump())
