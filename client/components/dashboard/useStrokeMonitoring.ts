@@ -238,6 +238,27 @@ export function useStrokeMonitoring(
     return () => clearInterval(timer);
   }, [mode]);
 
+  // ── Auto-stop when countdown hits 0 ───────────────────────────────────────
+  // When the timer expires, forcefully end the scan and stop the camera.
+  // This runs AFTER the countdown state update, so WebcamPPG's onComplete
+  // callback may have already called cancelQuickCheck with a score.
+  useEffect(() => {
+    if (mode === 'quick-check' && countdown === 0) {
+      // Use a short delay to give WebcamPPG's onComplete a chance to fire first
+      const timeout = setTimeout(() => {
+        setMode((currentMode) => {
+          if (currentMode === 'quick-check') {
+            // Timer expired but WebcamPPG didn't finish — force stop
+            setCountdown(null);
+            return 'idle';
+          }
+          return currentMode;
+        });
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [mode, countdown]);
+
   // ── Active monitoring timer ────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== 'active') {
