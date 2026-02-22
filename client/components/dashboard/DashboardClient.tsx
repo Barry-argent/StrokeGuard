@@ -65,7 +65,7 @@ function parseBloodPressure(bp: string | null): {
 }
 
 function computeRiskScore(profile: HealthProfile | null): number {
-  if (!profile) return 30;
+  if (!profile) return 0;
   return calculateAHAScore({
     bloodPressure: profile.bloodPressure || "",
     diabetesStatus: profile.diabetesStatus || "no",
@@ -250,7 +250,7 @@ export function DashboardClient({
               {/* Stroke Score Card — dynamic, session-based */}
               <StrokeScoreCard
                 mode={monitoring.mode}
-                strokeScore={monitoring.strokeScore ?? lastSession?.finalScore ?? computeRiskScore(healthProfile)}
+                strokeScore={monitoring.strokeScore ?? lastSession?.finalScore ?? null}
                 countdown={monitoring.countdown}
                 sessionPulseRate={monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null}
                 sessionPRV={monitoring.sessionPRV ?? lastSession?.avgPrv ?? null}

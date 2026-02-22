@@ -1,7 +1,7 @@
 "use client";
 
-import { Lightbulb, RotateCcw, ExternalLink, Sparkles, CheckCircle2, Circle } from 'lucide-react';
-import { useMemo } from 'react';
+import { Lightbulb, RotateCcw, ExternalLink, Sparkles, CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface HealthTipsCardProps {
@@ -10,48 +10,103 @@ interface HealthTipsCardProps {
   completedTasks?: string[];
 }
 
+const TIPS_CACHE_KEY = 'strokeguard_health_tips';
+const TIPS_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+function getCachedTips(): string | null {
+  try {
+    const raw = localStorage.getItem(TIPS_CACHE_KEY);
+    if (!raw) return null;
+    const { tips, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > TIPS_CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(TIPS_CACHE_KEY);
+      return null;
+    }
+    return tips;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedTips(tips: string) {
+  try {
+    localStorage.setItem(TIPS_CACHE_KEY, JSON.stringify({ tips, timestamp: Date.now() }));
+  } catch { /* ignore quota errors */ }
+}
+
 export function HealthTipsCard({ aiAdvice, onTaskComplete, completedTasks = [] }: HealthTipsCardProps) {
-  const isAI = !!aiAdvice;
-  
-  // Intelligently parse textual advice into context summary and actionable tasks
-  const { summary, tasks } = useMemo(() => {
+  const [fetchedTips, setFetchedTips] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  const fetchTips = useCallback(async (force = false) => {
+    // Don't fetch if we already have AI advice from the polling system (e.g. YELLOW triage)
+    if (aiAdvice && !force) return;
+
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/internal/health-tips');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tips) {
+          setFetchedTips(data.tips);
+          setCachedTips(data.tips);
+        }
+      }
+    } catch (e) {
+      console.error('[HealthTips] Fetch error:', e);
+    } finally {
+      setIsLoading(false);
+      setHasFetched(true);
+    }
+  }, [aiAdvice]);
+
+  // On mount: load from cache first, then fetch fresh tips
+  useEffect(() => {
+    const cached = getCachedTips();
+    if (cached) {
+      setFetchedTips(cached);
+      setHasFetched(true);
+    }
+    // Always attempt a fresh fetch (will update in background)
     if (!aiAdvice) {
-      return { 
-        summary: '',
-        tasks: [
-          "Drink 8 glasses of water.", 
-          "Take a 15 minute walk.", 
-          "Check your blood pressure."
-        ] 
-      };
+      fetchTips();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // The active tip source: real-time AI advice (triage) > fetched tips > null
+  const activeTips = aiAdvice || fetchedTips;
+  const isAI = !!activeTips;
+  
+  // Parse textual advice into context summary and actionable tasks
+  const { summary, tasks } = useMemo(() => {
+    if (!activeTips) {
+      return { summary: '', tasks: [] };
     }
     
     // Look for markdown lists (- or * or 1.) to extract discrete actions
     const listRegex = /^(?:-|\*|\d+\.)\s+(.+)$/gm;
-    const extractedTasks = [];
+    const extractedTasks: string[] = [];
     let match;
-    while ((match = listRegex.exec(aiAdvice)) !== null) {
+    while ((match = listRegex.exec(activeTips)) !== null) {
       extractedTasks.push(match[1].trim());
     }
 
     if (extractedTasks.length > 0) {
-      return { 
-        summary: aiAdvice.replace(listRegex, '').trim(), 
-        tasks: extractedTasks 
-      };
+      // Everything before the first list item is the summary
+      const firstListIdx = activeTips.search(/^(?:-|\*|\d+\.)\s+/m);
+      const summaryText = firstListIdx > 0 ? activeTips.substring(0, firstListIdx).trim() : '';
+      return { summary: summaryText, tasks: extractedTasks };
     }
 
-    // Fallback: If no lists, try to split by sentence intelligently
-    const sentences = aiAdvice.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 5);
-    
-    // If multiple sentences, use first one as summary, others as tasks
+    // Fallback: split by sentence
+    const sentences = activeTips.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 5);
     if (sentences.length > 1) {
       return { summary: sentences[0], tasks: sentences.slice(1) };
     }
-    
-    // If just one sentence, no summary, just a single task
     return { summary: '', tasks: sentences };
-  }, [aiAdvice]);
+  }, [activeTips]);
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-[#FAFAFA] to-[#F8FAFC] rounded-[16px] p-4 sm:p-6 shadow-sm border border-[#E2E8F0] group transition-all duration-300 hover:shadow-md">
@@ -75,10 +130,42 @@ export function HealthTipsCard({ aiAdvice, onTaskComplete, completedTasks = [] }
             {isAI ? "AI Action Plan" : "Daily Goals"}
           </h3>
         </div>
-        <button className="text-[#94A3B8] hover:text-[#0F172A] transition-colors p-1.5 rounded-md hover:bg-slate-100" title="Refresh insight">
-          <RotateCcw size={14} />
+        <button 
+          onClick={() => fetchTips(true)} 
+          disabled={isLoading}
+          className="text-[#94A3B8] hover:text-[#0F172A] transition-colors p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-50" 
+          title="Refresh insight"
+        >
+          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
         </button>
       </div>
+
+      {/* Loading state */}
+      {isLoading && !activeTips && (
+        <div className="space-y-3 mb-4 relative z-10">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-100">
+              <div className="w-4 h-4 rounded-full bg-slate-200 animate-pulse shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 bg-slate-200 rounded animate-pulse" style={{ width: `${70 + i * 10}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state for first-time users with no tips yet */}
+      {!isLoading && !activeTips && hasFetched && (
+        <div className="text-center py-6 relative z-10">
+          <p className="text-slate-400 text-sm mb-3">Complete your first scan to get personalized health tips.</p>
+          <button
+            onClick={() => fetchTips(true)}
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+          >
+            Try generating tips anyway →
+          </button>
+        </div>
+      )}
       
       {summary && (
         <div className="relative z-10 mb-4 prose prose-sm prose-slate max-w-none prose-p:my-1 leading-relaxed text-[13px] text-slate-600">

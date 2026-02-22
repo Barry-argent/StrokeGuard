@@ -414,3 +414,87 @@ async def trigger_manual_sos(payload: SOSPayload, background_tasks: BackgroundTa
 
     logger.warning("MANUAL SOS TRIGGERED for patient %s", payload.patient_id)
     return {"status": "success", "message": "SOS protocol initiated"}
+
+
+@app.get("/api/v1/patient/{patient_id}/health-tips")
+async def get_health_tips(patient_id: str = Path(..., pattern=PATIENT_ID_PATTERN)):
+    """Generate personalized daily health tasks using Gemini AI."""
+    profile = await get_db_row("profiles", patient_id)
+    state = await get_db_row("patients", patient_id)
+
+    # Build context from whatever data we have
+    name = profile.get("name", "Patient") if profile else "Patient"
+    age = profile.get("age", "Unknown") if profile else "Unknown"
+    history = profile.get("history", "None") if profile else "None"
+    activity = profile.get("recent_activity", "Unknown") if profile else "Unknown"
+
+    risk_level = state.get("status", "GREEN") if state else "GREEN"
+    hrv = state.get("hrv", None) if state else None
+    bp = state.get("bp", "120/80") if state else "120/80"
+    risk_score = state.get("risk_score", None) if state else None
+
+    # Construct a rich, contextual prompt
+    vitals_context = f"Blood Pressure: {bp}."
+    if hrv is not None:
+        vitals_context += f" HRV (RMSSD): {hrv:.1f}ms."
+    if risk_score is not None:
+        vitals_context += f" Composite Risk Score: {risk_score}/100."
+
+    system_instr = (
+        "You are StrokeGuard AI, a personal health coach specializing in stroke prevention. "
+        "Your role is to generate personalized, actionable daily health tasks for patients. "
+        "Tasks must be specific, measurable, and achievable within a single day. "
+        "Adapt the NUMBER of tasks to the patient's situation — more tasks for higher risk patients, "
+        "fewer but still helpful tasks for healthy patients. Minimum 3, no maximum. "
+        "Each task should directly relate to reducing stroke risk factors evident in the patient's data. "
+        "Format your response EXACTLY as follows:\n"
+        "First line: A single sentence summary of the patient's current health context.\n"
+        "Then a blank line, followed by tasks as a markdown bullet list using '- ' prefix.\n"
+        "Each task should be one concise sentence. Make them warm and encouraging.\n"
+        "Do NOT include any other text, headers, or explanations."
+    )
+
+    prompt = (
+        f"Patient: {name}, Age: {age}.\n"
+        f"Medical History: {history}.\n"
+        f"Activity Level: {activity}.\n"
+        f"Current Risk Level: {risk_level}.\n"
+        f"Current Vitals: {vitals_context}\n"
+        f"\nGenerate personalized daily health tasks for today."
+    )
+
+    try:
+        response = await genai_client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(system_instruction=system_instr),
+        )
+        tips_text = response.text.strip()
+        logger.info("Generated health tips for patient %s (risk: %s)", patient_id, risk_level)
+
+    except errors.APIError as api_err:
+        logger.error("Gemini API Error for health tips [%s]: %s", patient_id, api_err)
+        tips_text = (
+            f"Welcome back, {name}. Here are your daily wellness goals.\n\n"
+            "- Drink at least 8 glasses of water throughout the day.\n"
+            "- Take a 15-minute walk at a comfortable pace.\n"
+            "- Check and log your blood pressure.\n"
+            "- Practice 5 minutes of deep breathing exercises.\n"
+            "- Eat at least 2 servings of fruits or vegetables with each meal."
+        )
+    except Exception as e:
+        logger.error("Unexpected error generating health tips for %s: %s", patient_id, e)
+        tips_text = (
+            f"Welcome back, {name}. Here are your daily wellness goals.\n\n"
+            "- Drink at least 8 glasses of water throughout the day.\n"
+            "- Take a 15-minute walk at a comfortable pace.\n"
+            "- Check and log your blood pressure.\n"
+            "- Practice 5 minutes of deep breathing exercises.\n"
+            "- Eat at least 2 servings of fruits or vegetables with each meal."
+        )
+
+    return {
+        "tips": tips_text,
+        "risk_level": risk_level,
+        "generated_at": time.time(),
+    }
