@@ -25,7 +25,7 @@ export interface StrokeMonitoringState {
   activeMinutesLeft: number | null;
   triageStatus: 'GREEN' | 'YELLOW' | 'RED' | null;
   aiAdvice: string | null;
-  alertFailure: boolean;
+  alertFailure: string | null;
   uiAction: string | null;
   startQuickCheck: () => void;
   cancelQuickCheck: (finalScore?: number) => void;
@@ -78,7 +78,7 @@ export function useStrokeMonitoring(
   const [activeMinutesLeft, setActiveMinutesLeft] = useState<number | null>(null);
   const [triageStatus, setTriageStatus] = useState<'GREEN' | 'YELLOW' | 'RED' | null>(null);
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
-  const [alertFailure, setAlertFailure] = useState(false);
+  const [alertFailure, setAlertFailure] = useState<string | null>(null);
   const [uiAction, setUiAction] = useState<string | null>('PASSIVE_MONITORING');
 
   const latestPR = useRef<number | null>(null);

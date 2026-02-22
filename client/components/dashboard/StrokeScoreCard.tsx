@@ -16,7 +16,7 @@ interface StrokeScoreCardProps {
   activeMinutesLeft: number | null;
   triageStatus: 'GREEN' | 'YELLOW' | 'RED' | null;
   aiAdvice: string | null;
-  alertFailure: boolean;
+  alertFailure: string | null;
   uiAction: string | null;
   onStartQuickCheck: () => void;
   onCancelQuickCheck: () => void;

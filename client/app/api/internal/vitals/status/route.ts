@@ -38,7 +38,7 @@ export async function GET(req: Request) {
         triage_status: triageStatus,
         risk_score: computedScore,
         ai_advice: data.ai_advice || data.ai_coach || null,
-        alert_failure: data.alert_failure || false,
+        alert_failure: data.alert_failure || null,
         ui_action: data.ui_action || 'PASSIVE_MONITORING',
     });
 
