@@ -400,7 +400,7 @@ export default function WebcamPPG({
               prvScore: finalPrv,
               isExercising: false,
               source: "rppg_webcam",
-              mode: "QUICK_CHECK",
+              mode: "QUICK_SCAN",
               lifestyleScore: riskResult.lifestyle,
               finalRiskScore: riskResult.total,
               riskLevel: riskResult.riskLevel,

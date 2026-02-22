@@ -125,7 +125,7 @@ export async function POST(req: Request) {
         triageStatus: triageStatus,
         backendSdnn: backendData.hrv || prvScore,
         finalScore: computedScore,
-        alertFailure: backendData.alert_failure || false,
+        alertFailure: backendData.alert_failure ? String(backendData.alert_failure) : false,
         aiAdvice: backendData.ai_coach || null,
         avgPulseRate,
         avgPrv: prvScore,

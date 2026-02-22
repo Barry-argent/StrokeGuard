@@ -153,9 +153,13 @@ export function useStrokeMonitoring(
               if (data.alert_failure) {
                 console.warn('CRITICAL: Backend Twilio SMS failed. Triggering local fallback SMS.');
               }
-              // Automatically trigger the FAST scan if not already there
-              if (window.location.pathname !== '/fast-check/exam') {
-                router.push('/fast-check/exam');
+              // Automatically trigger the FAST scan if not already there, unless exercising
+              if (
+                data.triage_status === 'RED' && 
+                data.ui_action !== 'EXERCISE_MODE_ACTIVE' &&
+                !window.location.pathname.startsWith('/fast-check')
+              ) {
+                router.push('/fast-check');
               }
             } else {
               // Status recovered from RED — resume normal polling
