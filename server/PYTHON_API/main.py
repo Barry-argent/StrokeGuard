@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     yield
 
-app = FastAPI(title="StrokeGuard API Gateway", version="2.2.1", lifespan=lifespan)
+app = FastAPI(title="StrokeGuard API Gateway", version="2.3.0", lifespan=lifespan)
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
@@ -208,8 +208,9 @@ async def generate_ai_coach(patient_id: str, sys: int, dia: int, hrv: float, aha
         "Please sit down, breathe slowly and deeply, and avoid strenuous activity."
     )
 
+# --- TWILIO COMMUNICATIONS ---
 def _send_twilio_sync(msg: str, to_contact: str):
-    """Synchronous Twilio wrapper to be run in a thread pool."""
+    """Synchronous Twilio wrapper for SMS."""
     twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
     twilio_client.messages.create(
         body=msg,
@@ -217,8 +218,17 @@ def _send_twilio_sync(msg: str, to_contact: str):
         to=to_contact,
     )
 
+def _send_twilio_voice_sync(msg: str, to_contact: str):
+    """Synchronous Twilio wrapper for automated voice calls."""
+    twilio_client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+    twilio_client.calls.create(
+        twiml=f'<Response><Say voice="Polly.Matthew">{msg}</Say></Response>',
+        to=to_contact,
+        from_=os.getenv("TWILIO_PHONE_NUMBER")
+    )
+
 async def send_emergency_sms(patient_id: str, sys: int, dia: int, hrv: float, lat: Optional[float], lng: Optional[float], emergency_contact: str):
-    """Fires emergency protocol via Twilio using asyncio.to_thread to prevent blocking."""
+    """Fires emergency SMS protocol via Twilio."""
     try:
         loc = f"https://www.google.com/maps?q={lat},{lng}" if lat and lng else "GPS Disabled"
         msg = (
@@ -228,7 +238,6 @@ async def send_emergency_sms(patient_id: str, sys: int, dia: int, hrv: float, la
             "Please dispatch help immediately."
         )
         
-        # Offload the blocking sync call to a separate thread
         await asyncio.to_thread(_send_twilio_sync, msg, emergency_contact)
         logger.info("Emergency SMS sent for patient %s to %s", patient_id, emergency_contact)
 
@@ -240,6 +249,34 @@ async def send_emergency_sms(patient_id: str, sys: int, dia: int, hrv: float, la
     except Exception as e:
         logger.error("Unexpected error sending SMS for patient %s: %s", patient_id, e)
 
+async def notify_hospital_dispatch(patient_id: str, sys: int, dia: int, lat: Optional[float], lng: Optional[float]):
+    """Fires an automated voice call to a designated hospital triage line."""
+    hospital_number = os.getenv("HOSPITAL_EMERGENCY_NUMBER") 
+    
+    if not hospital_number:
+        logger.error("HOSPITAL_EMERGENCY_NUMBER not set in .env")
+        return
+
+    voice_msg = (
+        f"Emergency alert from Stroke Guard. "
+        f"Critical vitals detected for patient ID {patient_id}. "
+        f"Blood pressure is {sys} over {dia}. "
+        f"Please check your system or incoming SMS for the patient's exact GPS location. "
+        f"Repeating: Critical stroke alert for patient ID {patient_id}."
+    )
+    
+    try:
+        await asyncio.to_thread(_send_twilio_voice_sync, voice_msg, hospital_number)
+        
+        loc = f"https://www.google.com/maps?q={lat},{lng}" if lat and lng else "GPS Disabled"
+        sms_msg = f"STROKEGUARD HOSPITAL DISPATCH\nPatient: {patient_id}\nBP: {sys}/{dia}\nLoc: {loc}"
+        await asyncio.to_thread(_send_twilio_sync, sms_msg, hospital_number)
+        
+        logger.info("Hospital voice and SMS dispatch triggered for %s", patient_id)
+    except Exception as e:
+        logger.error("Failed to notify hospital for patient %s: %s", patient_id, e)
+
+
 # --- API ENDPOINTS ---
 
 @app.get("/")
@@ -247,7 +284,7 @@ async def root():
     return {
         "app": "StrokeGuard API Gateway",
         "status": "online",
-        "version": "2.2.1"
+        "version": "2.3.0"
     }
     
 @app.post("/api/v1/patient/profile")
@@ -301,8 +338,9 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
         consecutive_green = 0
 
     if final_status == "RED":
-        ai_advice = "CRITICAL ALERT: Severe vital escalation detected. Emergency contacts have been notified. Please seek immediate medical assistance."
+        ai_advice = "CRITICAL ALERT: Severe vital escalation detected. Emergency contacts and the hospital have been notified. Please dial 767 immediately."
         if not sms_sent:
+            # 1. Notify Personal Emergency Contact
             background_tasks.add_task(
                 send_emergency_sms,
                 payload.patient_id,
@@ -312,6 +350,15 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
                 payload.latitude,
                 payload.longitude,
                 profile["emergency_contact"],
+            )
+            # 2. Notify Hospital Triage automatically
+            background_tasks.add_task(
+                notify_hospital_dispatch,
+                payload.patient_id,
+                payload.systolic or 120,
+                payload.diastolic or 80,
+                payload.latitude,
+                payload.longitude
             )
             sms_sent = True
         consecutive_green = 0
@@ -345,10 +392,10 @@ async def sync_vitals(payload: VitalsPayload, background_tasks: BackgroundTasks)
         payload.mode, payload.patient_id, payload.systolic, payload.diastolic, rmssd, payload.prv_score, final_status
     )
     
-    # FIX APPLIED HERE: Mask the advice if the current reading is GREEN
     return {
         "status": final_status, 
-        "ai_coach": ai_advice if final_status != "GREEN" else ""
+        "ai_coach": ai_advice if final_status != "GREEN" else "",
+        "client_action": "DIAL_767" if final_status == "RED" else "NONE"
     }
 
 @app.get("/api/v1/patient/{patient_id}/status")
@@ -363,6 +410,6 @@ async def get_status(patient_id: str = Path(..., pattern=PATIENT_ID_PATTERN, des
     elif state.get("status") == "YELLOW":
         ui_action = "SHOW_AI_ADVICE_MODAL"
     elif state.get("status") == "RED":
-        ui_action = "TRIGGER_FAST_CHECK_EMERGENCY"
+        ui_action = "DIAL_767"
 
     return {**state, "ui_action": ui_action}
