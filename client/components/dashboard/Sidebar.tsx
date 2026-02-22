@@ -3,6 +3,7 @@
 import { Home, Activity, HeartPulse, Clock, Users, BookOpen, Watch, Settings, LogOut, Shield, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 interface SidebarProps {
   activePage?: string;
   showFastCheckAlert?: boolean;
@@ -31,7 +32,7 @@ export function Sidebar({ activePage = 'dashboard', showFastCheckAlert = false, 
 
   const bottomItems = [
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
-    { id: 'logout', icon: LogOut, label: 'Sign Out', path: '/welcome' },
+    { id: 'logout', icon: LogOut, label: 'Sign Out', path: null, action: () => signOut({ redirectTo: '/' }) },
   ];
 
   const NavItem = ({ item, isActive }: { item: any; isActive: boolean }) => {
@@ -44,7 +45,13 @@ export function Sidebar({ activePage = 'dashboard', showFastCheckAlert = false, 
         className="relative px-3 mb-1 cursor-pointer"
         onMouseEnter={() => setHoveredItem(item.id)}
         onMouseLeave={() => setHoveredItem(null)}
-        onClick={() => router.push(item.path)}
+        onClick={() => {
+          if (item.action) {
+            item.action();
+          } else {
+            router.push(item.path);
+          }
+        }}
       >
         <div
           className="flex items-center h-11 px-4 rounded-lg transition-all duration-200"

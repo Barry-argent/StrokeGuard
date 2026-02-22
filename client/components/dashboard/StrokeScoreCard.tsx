@@ -91,7 +91,7 @@ function CountdownGauge({ remaining, total }: { remaining: number; total: number
 export function StrokeScoreCard({
   mode, strokeScore, countdown, sessionPulseRate, sessionPRV,
   checkResult, activeMinutesLeft,
-  triageStatus, aiAdvice,
+  triageStatus, aiAdvice, uiAction,
   onStartQuickCheck, onCancelQuickCheck, onToggleActiveMonitoring,
 }: StrokeScoreCardProps) {
   const cfg = scoreConfig(strokeScore, triageStatus);
@@ -221,6 +221,14 @@ export function StrokeScoreCard({
             <Square size={16} />
             Cancel Measurement
           </button>
+        ) : triageStatus === 'RED' || uiAction === 'DIAL_767' ? (
+           <a 
+            href="tel:767"
+            className="flex-1 h-[48px] rounded-[10px] bg-[#EF4444] flex items-center justify-center gap-2 text-white hover:bg-[#DC2626] transition-colors font-sans font-bold text-[15px] shadow-[0_4px_12px_rgba(239,68,68,0.3)] animate-pulse"
+          >
+            <Power size={18} className="rotate-90" />
+             DIAL EMERGENCY (767)
+          </a>
         ) : (
           <>
             <button onClick={onStartQuickCheck}

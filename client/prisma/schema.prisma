@@ -64,7 +64,7 @@ model MonitoringSession {
   backendSessionId      String?
   triageStatus          String?
   backendSdnn           Float?
-  alertFailure          Boolean        @default(false)
+  alertFailure          String?
   aiAdvice              String?
   user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   vitals                VitalSample[]

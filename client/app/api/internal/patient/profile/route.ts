@@ -31,7 +31,11 @@ export async function POST(req: Request) {
     let emergencyContact = "+10000000000"; // fallback
     if (user.emergencyContacts.length > 0) {
        const rawPhone = user.emergencyContacts[0].phone.replace(/\D/g, '');
-       emergencyContact = rawPhone.startsWith('1') ? `+${rawPhone}` : `+1${rawPhone}`;
+       if (rawPhone.startsWith('234')) {
+         emergencyContact = `+${rawPhone}`;
+       } else {
+         emergencyContact = rawPhone.length > 10 ? `+${rawPhone}` : `+234${rawPhone.replace(/^0/, '')}`;
+       }
     }
 
     // Map HealthProfile to the new backend schema

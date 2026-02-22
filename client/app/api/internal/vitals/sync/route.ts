@@ -21,7 +21,13 @@ async function ensurePatientProfile(sessionUserId: string): Promise<void> {
   let emergencyContact = '+10000000000';
   if (user.emergencyContacts.length > 0) {
     const rawPhone = user.emergencyContacts[0].phone.replace(/\D/g, '');
-    emergencyContact = rawPhone.startsWith('1') ? `+${rawPhone}` : `+1${rawPhone}`;
+    // If it already starts with a country code (e.g. 234), just add +. 
+    // Otherwise assume local and add +234 for Nigeria or use fallback.
+    if (rawPhone.startsWith('234')) {
+      emergencyContact = `+${rawPhone}`;
+    } else {
+      emergencyContact = rawPhone.length > 10 ? `+${rawPhone}` : `+234${rawPhone.replace(/^0/, '')}`;
+    }
   }
 
   const age = user.healthProfile?.dob
@@ -125,7 +131,7 @@ export async function POST(req: Request) {
         triageStatus: triageStatus,
         backendSdnn: backendData.hrv || prvScore,
         finalScore: computedScore,
-        alertFailure: backendData.alert_failure ? String(backendData.alert_failure) : false,
+        alertFailure: backendData.alert_failure ? String(backendData.alert_failure) : null,
         aiAdvice: backendData.ai_coach || null,
         avgPulseRate,
         avgPrv: prvScore,
