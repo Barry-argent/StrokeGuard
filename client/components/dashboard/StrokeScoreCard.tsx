@@ -105,11 +105,11 @@ export function StrokeScoreCard({
   }, [checkResult]);
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] relative overflow-hidden flex flex-col">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 sm:p-6 relative overflow-hidden flex flex-col">
       {/* 3px #0EA5E9 top accent border */}
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#0EA5E9]" />
       
-      <div className="p-[24px] flex-1">
+      <div className="flex-1">
         {aiAdvice && (
           <div className="mb-5 p-3 bg-gradient-to-r from-indigo-50 to-white text-indigo-700 text-xs font-medium rounded-xl border border-indigo-100/60 flex items-start gap-2 shadow-sm">
             <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
@@ -203,7 +203,7 @@ export function StrokeScoreCard({
       </div>
 
       {/* Action Row */}
-      <div className="px-[24px] pb-[24px] flex gap-4">
+      <div className="px-4 sm:px-6 pb-4 sm:pb-6 flex gap-4">
         {isActive ? (
           <button onClick={onToggleActiveMonitoring}
             className="flex-1 h-[48px] rounded-[8px] bg-[#FEF2F2] border-[#FECACA] border flex items-center justify-center gap-2 transition-colors hover:bg-red-100"

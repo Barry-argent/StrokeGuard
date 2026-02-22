@@ -17,9 +17,22 @@ export default async function SOSPage() {
             Emergency mode activated. Help is on the way.
           </p>
 
-          <div className="bg-white rounded-2xl p-8 border-4 border-red-500 text-center" style={{ boxShadow: '0 10px 30px rgba(239, 68, 68, 0.2)' }}>
-             <p className="text-lg font-bold text-red-600 mb-4" style={{ fontFamily: 'DM Sans, sans-serif' }}>Emergency Contacts notified</p>
-             <p className="text-[13px] text-gray-600" style={{ fontFamily: 'DM Sans, sans-serif' }}>Your GPS coordinates and health summary have been sent to your primary contacts.</p>
+          <div className="bg-white rounded-2xl p-8 border-4 border-red-500 text-center animate-pulse" style={{ boxShadow: '0 10px 40px rgba(239, 68, 68, 0.3)' }}>
+             <p className="text-2xl font-bold text-red-600 mb-4" style={{ fontFamily: 'DM Sans, sans-serif' }}>PROTOCOL INITIATED</p>
+             <p className="text-[15px] text-gray-700 leading-relaxed" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+               Your emergency contacts have been notified with your current health summary and GPS location. 
+               <br/><br/>
+               <span className="font-semibold text-red-800">Please remain calm. Help is on the way.</span>
+             </p>
+          </div>
+          
+          <div className="mt-8 text-center">
+             <button 
+               onClick={() => window.location.href = 'tel:911'}
+               className="bg-red-700 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-red-800 transition-colors shadow-lg"
+             >
+               Call 911 Directly
+             </button>
           </div>
         </div>
       </div>

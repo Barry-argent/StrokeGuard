@@ -9,7 +9,7 @@ interface LiveVitalsStripProps {
 
 export function LiveVitalsStrip({ pulseRate, prv }: LiveVitalsStripProps) {
   return (
-    <div className="px-8 pb-6 flex items-center gap-3 flex-wrap">
+    <div className="px-4 sm:px-8 pb-6 flex items-center gap-2 sm:gap-3 flex-wrap">
       {/* Chip 1 - Pulse Rate */}
       <div className="h-9 rounded-full bg-[#FEF2F2] border border-[#FECACA] border-[1px] flex items-center px-4 gap-2">
         <Heart size={12} className="text-[#EF4444] fill-[#EF4444]" />

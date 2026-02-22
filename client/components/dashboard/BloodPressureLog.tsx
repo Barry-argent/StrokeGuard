@@ -33,7 +33,7 @@ export function BloodPressureLog({
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-[24px]">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 sm:p-6">
       {/* Card header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">

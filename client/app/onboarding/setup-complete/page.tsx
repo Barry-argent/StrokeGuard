@@ -34,7 +34,7 @@ export default function SetupCompletePage() {
       </div>
 
       {/* Right Panel - Content */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-white">
         <div className="w-full max-w-md">
           {/* Progress bar - 100% */}
           <div className="mb-12">

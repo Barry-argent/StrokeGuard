@@ -1,9 +1,10 @@
 "use client";
 
-import { Home, Activity, HeartPulse, Clock, Users, BookOpen, Watch, Settings, LogOut, Shield, ChevronDown } from 'lucide-react';
+import { Home, Activity, HeartPulse, Clock, Users, BookOpen, Watch, Settings, LogOut, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { Logo } from '@/components/Logo';
 interface SidebarProps {
   activePage?: string;
   showFastCheckAlert?: boolean;
@@ -127,7 +128,7 @@ export function Sidebar({ activePage = 'dashboard', showFastCheckAlert = false, 
       {/* Logo Section */}
       <div className="px-5 pt-6 pb-5">
         <div className="flex items-center">
-          <Shield size={28} style={{ color: '#0EA5E9' }} />
+          <Logo size={32} color="#0EA5E9" className="mr-0.5" />
           <span
             className="ml-2.5 text-lg font-bold text-white"
             style={{ fontFamily: 'DM Sans, sans-serif' }}

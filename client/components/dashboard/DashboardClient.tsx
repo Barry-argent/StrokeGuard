@@ -220,9 +220,8 @@ export function DashboardClient({
         <div className="flex items-center gap-3 lg:gap-0">
           {/* Hamburger (mobile only) */}
           <button
-            className="lg:hidden ml-4 mt-0 flex-shrink-0 p-2 rounded-lg hover:bg-white/60 transition-colors"
+            className="lg:hidden ml-4 flex-shrink-0 p-2 rounded-lg hover:bg-gray-100 transition-colors"
             onClick={() => setSidebarOpen(true)}
-            style={{ marginTop: '0px' }}
           >
             <Menu size={22} style={{ color: '#0F172A' }} />
           </button>

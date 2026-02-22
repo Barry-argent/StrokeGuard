@@ -110,7 +110,7 @@ export function RecentActivityFeed({ sessions, completedTasks = [] }: RecentActi
   );
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-[24px]">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-sans font-semibold text-[16px] text-[#0F172A]">Recent Activity</h3>
@@ -170,7 +170,7 @@ export function RecentActivityFeed({ sessions, completedTasks = [] }: RecentActi
                     {activity.description}
                   </p>
                 </div>
-                <span className="font-mono text-[11px] text-[#94A3B8] flex-shrink-0 mt-1 self-start">
+                <span className="font-mono text-[11px] text-[#94A3B8] flex-shrink-0 mt-1 self-start ml-auto">
                   {activity.time}
                 </span>
               </div>

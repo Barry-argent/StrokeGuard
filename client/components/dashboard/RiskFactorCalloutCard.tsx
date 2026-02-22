@@ -16,7 +16,7 @@ export function RiskFactorCalloutCard({
   if (!hasRisk) return null;
 
   return (
-    <div className="bg-[#FFFBEB] rounded-[12px] border border-[#FDE68A] relative overflow-hidden p-[16px]">
+    <div className="bg-[#FFFBEB] rounded-[12px] border border-[#FDE68A] relative overflow-hidden p-4">
       <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#F59E0B]" />
       
       <div className="flex gap-3">

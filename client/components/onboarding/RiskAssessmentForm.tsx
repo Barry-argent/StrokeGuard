@@ -58,7 +58,7 @@ export default function RiskAssessmentForm() {
       </div>
 
       {/* Right Panel - Content */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white text-[#0F172A] overflow-y-auto">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-white text-[#0F172A] overflow-y-auto">
         <div className="w-full max-w-md">
           {/* Progress bar */}
           <div className="mb-6">

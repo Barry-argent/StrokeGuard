@@ -50,7 +50,7 @@ export function FastCheckStatusCard({ sdnn, latestFastScan, onStartCheck }: Fast
   const distancePercentage = Math.min((displaySDNN / 100) * 100, 100);
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] relative overflow-hidden flex flex-col p-[24px]">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] relative overflow-hidden flex flex-col p-4 sm:p-6">
       {/* 3px #0EA5E9 top accent border */}
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#0EA5E9]" />
       

@@ -7,6 +7,7 @@ import { EyeOff, Eye, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
 import { signUp } from "@/lib/actions/auth";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/Logo";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -47,8 +48,12 @@ export default function SignUpPage() {
       </div>
 
       {/* Right Panel - Content */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white text-[#0F172A]">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-white text-[#0F172A]">
         <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="mb-8">
+            <Logo size={48} color="#0EA5E9" />
+          </div>
           {/* Progress bar */}
           <div className="mb-6">
             <div className="h-1 bg-[#F1F5F9] rounded-full overflow-hidden mb-2">

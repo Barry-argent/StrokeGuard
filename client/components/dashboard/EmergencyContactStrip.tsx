@@ -17,7 +17,7 @@ export function EmergencyContactStrip({ contacts }: { contacts: Contact[] }) {
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-[24px]">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 sm:p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-sans font-semibold text-[15px] text-[#0F172A]">
           Emergency Contacts

@@ -12,9 +12,9 @@ export function DashboardTopBar({ userName = 'User', userInitials = 'U' }: Dashb
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
-    <div className="h-16 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-8 flex-shrink-0">
+    <div className="h-16 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-4 sm:px-8 flex-shrink-0">
       {/* Left: Breadcrumb */}
-      <div className="flex items-center text-[13px] font-sans">
+      <div className="hidden sm:flex items-center text-[13px] font-sans">
         <span className="text-[#94A3B8]">Dashboard</span>
         <span className="mx-2 text-[#CBD5E1]">/</span>
         <span className="text-[#0F172A] font-semibold">Overview</span>
@@ -23,14 +23,19 @@ export function DashboardTopBar({ userName = 'User', userInitials = 'U' }: Dashb
       {/* Right: Search, Notifications, Profile */}
       <div className="flex items-center gap-4">
         {/* Search */}
-        <div className="relative">
+        <div className="relative hidden lg:block">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
           <input
             type="text"
             placeholder="Search..."
-            className="w-[480px] h-10 pl-10 pr-3 rounded-lg border-0 text-[13px] bg-[#F1F5F9] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-1 font-sans"
+            className="w-[300px] xl:w-[480px] h-10 pl-10 pr-3 rounded-lg border-0 text-[13px] bg-[#F1F5F9] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-1 font-sans"
           />
         </div>
+
+        {/* Search Icon button for mobile */}
+        <button className="lg:hidden p-2 hover:bg-gray-50 rounded-lg transition-colors">
+          <Search size={20} className="text-[#64748B]" />
+        </button>
 
         {/* Notification Bell */}
         <div className="relative">
@@ -66,7 +71,7 @@ export function DashboardTopBar({ userName = 'User', userInitials = 'U' }: Dashb
           <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center text-[13px] font-bold bg-[#DBEAFE] text-[#1D4ED8] font-sans">
             {userInitials}
           </div>
-          <div className="flex flex-col justify-center">
+          <div className="hidden sm:flex flex-col justify-center">
             <p className="text-[13px] font-medium leading-[14px] text-[#0F172A] font-sans">{userName.toLowerCase()}</p>
             <p className="text-[11px] leading-[14px] text-[#94A3B8] font-sans mt-0.5">Patient</p>
           </div>

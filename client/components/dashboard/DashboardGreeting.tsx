@@ -23,7 +23,7 @@ export function DashboardGreeting({ userName }: DashboardGreetingProps) {
   else if (hour < 17) timeOfDay = "afternoon";
 
   return (
-    <div className="pt-8 px-8 pb-6">
+    <div className="pt-8 px-4 sm:px-8 pb-6">
       <h1 className="font-sans font-bold text-[28px] text-[#0F172A]">
         Good {timeOfDay}, {firstName}.
       </h1>

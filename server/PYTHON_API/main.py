@@ -128,6 +128,19 @@ class VitalsPayload(BaseModel):
             raise ValueError(f"Need at least {MIN_BPM_READINGS} BPM readings. Got {len(v)}.")
         return v
 
+class SOSPayload(BaseModel):
+    patient_id: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+    @field_validator("patient_id")
+    @classmethod
+    def validate_patient_id(cls, v: str) -> str:
+        import re
+        if not re.match(PATIENT_ID_PATTERN, v):
+            raise ValueError("patient_id must be 1-64 alphanumeric characters, hyphens, or underscores.")
+        return v
+
 # --- TRIAGE & AI LOGIC ---
 def calculate_rmssd(bpm_history: List[float]) -> float:
     """Calculates RMSSD (ms) for ultra-short-term HRV analysis."""
@@ -366,3 +379,38 @@ async def get_status(patient_id: str = Path(..., pattern=PATIENT_ID_PATTERN, des
         ui_action = "TRIGGER_FAST_CHECK_EMERGENCY"
 
     return {**state, "ui_action": ui_action}
+
+@app.post("/api/v1/patient/sos")
+async def trigger_manual_sos(payload: SOSPayload, background_tasks: BackgroundTasks):
+    profile = await get_db_row("profiles", payload.patient_id)
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No profile found for patient {payload.patient_id}.",
+        )
+
+    # 1. Update state to RED in DB
+    prev = await get_db_row("patients", payload.patient_id)
+    new_state = {
+        **prev,
+        "status": "RED",
+        "sms_sent": True,
+        "ai_advice": "EMERGENCY SOS ACTIVATED: Help has been summoned. Emergency contacts are being notified.",
+        "ai_last_gen_time": time.time(),
+    }
+    await save_db_row("patients", payload.patient_id, new_state)
+
+    # 2. Fire SMS background task
+    background_tasks.add_task(
+        send_emergency_sms,
+        payload.patient_id,
+        new_state.get("bp_sys", 120),  # Use existing BP if available
+        new_state.get("bp_dia", 80),
+        new_state.get("hrv", 0.0),
+        payload.latitude,
+        payload.longitude,
+        profile["emergency_contact"],
+    )
+
+    logger.warning("MANUAL SOS TRIGGERED for patient %s", payload.patient_id)
+    return {"status": "success", "message": "SOS protocol initiated"}

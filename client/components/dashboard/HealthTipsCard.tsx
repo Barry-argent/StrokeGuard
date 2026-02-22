@@ -54,7 +54,7 @@ export function HealthTipsCard({ aiAdvice, onTaskComplete, completedTasks = [] }
   }, [aiAdvice]);
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-[#FAFAFA] to-[#F8FAFC] rounded-[16px] p-5 shadow-sm border border-[#E2E8F0] group transition-all duration-300 hover:shadow-md">
+    <div className="relative overflow-hidden bg-gradient-to-br from-[#FAFAFA] to-[#F8FAFC] rounded-[16px] p-4 sm:p-6 shadow-sm border border-[#E2E8F0] group transition-all duration-300 hover:shadow-md">
       {/* Subtle AI Glow if isAI */}
       {isAI && (
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-indigo-500/10 blur-2xl rounded-full pointer-events-none transition-all group-hover:bg-indigo-500/20" />

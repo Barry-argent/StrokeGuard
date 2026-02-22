@@ -4,7 +4,7 @@ import { Timer } from 'lucide-react';
 
 export function ImOkTimerCard() {
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-[20px] flex items-center justify-between">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 sm:p-5 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className="w-[32px] h-[32px] rounded-[8px] bg-[#FFFBEB] flex items-center justify-center flex-shrink-0">
           <Timer size={16} className="text-[#F59E0B]" />

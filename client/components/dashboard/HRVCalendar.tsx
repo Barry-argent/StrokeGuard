@@ -72,33 +72,32 @@ export function HRVCalendar({ sessions = [] }: { sessions?: any[] }) {
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-[24px]">
+    <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 sm:p-6">
       {/* Card header */}
-      <div className="flex items-center justify-between mb-4 relative">
+      <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-4 mb-4">
         <h3 className="font-sans font-semibold text-[16px] text-[#0F172A]">PRV History</h3>
-        <div className="flex items-center gap-4 absolute left-1/2 -translate-x-1/2">
+        <div className="flex items-center gap-4">
           <button className="p-1 hover:bg-slate-50 rounded transition-colors text-[#94A3B8]">
             <ChevronLeft size={16} />
           </button>
-          <span className="font-sans font-medium text-[14px] text-[#0F172A]">{currentMonthName}</span>
+          <span className="font-sans font-medium text-[14px] text-[#0F172A] min-w-[120px] text-center">{currentMonthName}</span>
           <button className="p-1 hover:bg-slate-50 rounded transition-colors text-[#94A3B8]">
             <ChevronRight size={16} />
           </button>
         </div>
-        <div /> {/* Spacer for flex-between */}
       </div>
 
       {/* Legend row */}
-      <div className="flex gap-4 mb-6">
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap gap-x-4 gap-y-2 mb-6">
+        <div className="flex items-center gap-1.5 min-w-fit">
           <div className="w-2 h-2 rounded-full bg-[#10B981]" />
-          <span className="font-sans text-[11px] text-[#64748B]">Healthy (SDNN ≥ 50ms)</span>
+          <span className="font-sans text-[11px] text-[#64748B]">Healthy (≥ 50ms)</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-fit">
           <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
           <span className="font-sans text-[11px] text-[#64748B]">Borderline (20–49ms)</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-fit">
           <div className="w-2 h-2 rounded-full bg-[#EF4444]" />
           <span className="font-sans text-[11px] text-[#64748B]">At Risk (&lt; 20ms)</span>
         </div>
