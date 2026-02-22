@@ -48,6 +48,10 @@ export default async function DashboardPage() {
           aiAdvice: true,
         },
       },
+      fastScanResults: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
   });
 
@@ -61,6 +65,7 @@ export default async function DashboardPage() {
       emergencyContacts={user?.emergencyContacts ?? []}
       healthProfile={user?.healthProfile ?? null}
       monitoringSessions={(user?.monitoringSessions as any) ?? []}
+      latestFastScan={user?.fastScanResults?.[0] || null}
     />
   );
 }

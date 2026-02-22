@@ -4,6 +4,7 @@ import { Shield, Check, Info } from 'lucide-react';
 
 interface FastCheckStatusCardProps {
   sdnn: number | null;
+  latestFastScan?: any;
   onStartCheck?: () => void;
 }
 
@@ -44,7 +45,7 @@ function SemicircleGaugeWithNeedle({ value }: { value: number }) {
   );
 }
 
-export function FastCheckStatusCard({ sdnn }: FastCheckStatusCardProps) {
+export function FastCheckStatusCard({ sdnn, latestFastScan, onStartCheck }: FastCheckStatusCardProps) {
   const displaySDNN = sdnn ?? 60;
   const distancePercentage = Math.min((displaySDNN / 100) * 100, 100);
 
@@ -62,9 +63,38 @@ export function FastCheckStatusCard({ sdnn }: FastCheckStatusCardProps) {
           <span className="font-sans font-semibold text-[15px] text-[#0F172A]">FAST Check</span>
         </div>
         <div className="bg-[#F1F5F9] px-[10px] py-1 rounded-full">
-          <span className="font-sans font-medium text-[11px] text-[#64748B]">Standby</span>
+          <span className="font-sans font-medium text-[11px] text-[#64748B]">
+            {latestFastScan ? new Date(latestFastScan.createdAt).toLocaleDateString() : 'Standby'}
+          </span>
         </div>
       </div>
+
+      {/* Latest Result Banner */}
+      {latestFastScan && (
+        <div className={`mb-6 p-4 rounded-[12px] border flex flex-col gap-2 ${
+          latestFastScan.overallOutcome === 'clear' 
+            ? 'bg-[#ECFDF5] border-[#A7F3D0]' 
+            : 'bg-[#FEF2F2] border-[#FECACA]'
+        }`}>
+          <div className="flex items-center justify-between pointer-events-none">
+            <span className={`font-sans font-bold text-[13px] ${
+              latestFastScan.overallOutcome === 'clear' ? 'text-[#065F46]' : 'text-[#991B1B]'
+            }`}>
+              Latest Result
+            </span>
+            <span className={`font-sans font-semibold text-[12px] uppercase ${
+              latestFastScan.overallOutcome === 'clear' ? 'text-[#10B981]' : 'text-[#EF4444]'
+            }`}>
+              {latestFastScan.overallOutcome}
+            </span>
+          </div>
+          <p className="font-sans text-[11px] text-[#64748B]">
+            Face: {latestFastScan.faceResult === 'clear' ? 'Clear' : 'Warning'} • 
+            Arms: {latestFastScan.armResult === 'clear' ? 'Clear' : 'Warning'} • 
+            Speech: {latestFastScan.speechResult === 'clear' ? 'Clear' : 'Warning'}
+          </p>
+        </div>
+      )}
 
       {/* SDNN Gauge */}
       <div className="flex flex-col items-center mb-6">
@@ -104,12 +134,19 @@ export function FastCheckStatusCard({ sdnn }: FastCheckStatusCardProps) {
       </div>
 
       {/* Footer Note */}
-      <div className="flex items-start gap-2 mt-auto">
+      <div className="flex items-start gap-2 mt-auto mb-4">
         <Info size={14} className="text-[#94A3B8] mt-[1px] flex-shrink-0" />
         <p className="font-sans text-[11px] text-[#94A3B8] leading-tight">
           FAST Check will activate automatically when thresholds are breached.
         </p>
       </div>
+
+      <button 
+        onClick={onStartCheck}
+        className="w-full bg-[#0EA5E9] text-white font-sans font-medium text-[13px] h-[40px] rounded-[10px] hover:bg-[#0284C7] transition-colors shadow-sm"
+      >
+        Run Check Manually
+      </button>
 
     </div>
   );

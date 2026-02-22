@@ -44,6 +44,7 @@ interface DashboardClientProps {
   emergencyContacts: Contact[];
   healthProfile: HealthProfile | null;
   monitoringSessions: any[];
+  latestFastScan: any;
 }
 
 function parseBloodPressure(bp: string | null): {
@@ -110,6 +111,7 @@ export function DashboardClient({
   emergencyContacts,
   healthProfile,
   monitoringSessions,
+  latestFastScan,
 }: DashboardClientProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -314,6 +316,7 @@ export function DashboardClient({
 
                 <FastCheckStatusCard
                   sdnn={sdnn}
+                  latestFastScan={latestFastScan}
                   onStartCheck={() => router.push('/fast-check')}
                 />
                 <EmergencyContactStrip contacts={emergencyContacts} />

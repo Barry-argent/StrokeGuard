@@ -1,8 +1,9 @@
 "use client";
 
 import { Play, Square, Activity, Clock, Power, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import type { CheckResult, MonitoringMode } from './useStrokeMonitoring';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface StrokeScoreCardProps {
   mode: MonitoringMode;
@@ -96,6 +97,7 @@ export function StrokeScoreCard({
   const cfg = scoreConfig(strokeScore, triageStatus);
   const isActive = mode === 'active';
   const isQuick = mode === 'quick-check';
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const lastUpdatedFormatted = useMemo(() => {
     if (!checkResult) return null;
@@ -111,7 +113,19 @@ export function StrokeScoreCard({
         {aiAdvice && (
           <div className="mb-5 p-3 bg-gradient-to-r from-indigo-50 to-white text-indigo-700 text-xs font-medium rounded-xl border border-indigo-100/60 flex items-start gap-2 shadow-sm">
             <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
-            <span className="font-sans line-clamp-2 leading-relaxed">{aiAdvice}</span>
+            <div className="flex-1 min-w-0">
+              <div className={`font-sans leading-relaxed text-sm ${isExpanded ? '' : 'line-clamp-2'} prose prose-sm prose-indigo max-w-none prose-p:my-1 prose-strong:font-semibold prose-ul:my-1 prose-li:my-0 pb-1`}>
+                <ReactMarkdown>{aiAdvice}</ReactMarkdown>
+              </div>
+              {aiAdvice.length > 80 && (
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)} 
+                  className="mt-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  {isExpanded ? 'Read Less' : 'Read More'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -143,7 +157,7 @@ export function StrokeScoreCard({
                </p>
                <div className="flex items-baseline gap-1 mb-3">
                  <span className="font-mono font-bold text-[22px] text-[#0F172A]">
-                   {sessionPulseRate ?? '--'}
+                   {sessionPulseRate !== null ? sessionPulseRate.toFixed(1) : '--'}
                  </span>
                  <span className="font-sans text-[11px] text-[#94A3B8]">bpm</span>
                </div>
@@ -170,7 +184,7 @@ export function StrokeScoreCard({
                </p>
                <div className="flex items-baseline gap-1 mb-3">
                  <span className="font-mono font-bold text-[22px] text-[#0F172A]">
-                   {sessionPRV ?? '--'}
+                   {sessionPRV !== null ? sessionPRV.toFixed(1) : '--'}
                  </span>
                  <span className="font-sans text-[11px] text-[#94A3B8]">ms</span>
                </div>

@@ -73,7 +73,6 @@ export async function POST(req: Request) {
       prv_score: prvScore ?? 0,
       aha_lifestyle_score: lifestyleScore ?? 50,
       is_exercising: !!isExercising,
-      final_risk_score: finalRiskScore,
       systolic: systolic ?? 120,
       diastolic: diastolic ?? 80,
       latitude: latitude ?? null,
@@ -110,11 +109,8 @@ export async function POST(req: Request) {
 
     const backendData = await backendRes.json();
     
-    // Map risk level to triage status if not provided by backend
-    let triageStatus = backendData.status || 'GREEN';
-    if (riskLevel === 'High Risk') triageStatus = 'RED';
-    else if (riskLevel === 'Medium Risk') triageStatus = 'YELLOW';
-    else if (riskLevel === 'Low Risk') triageStatus = 'GREEN';
+    // Use the absolute truth from the Python backend
+    const triageStatus = backendData.status || 'GREEN';
 
     const computedScore = finalRiskScore ?? (triageStatus === 'RED' ? 20 : triageStatus === 'YELLOW' ? 50 : 85);
 

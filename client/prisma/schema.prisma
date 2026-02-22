@@ -19,6 +19,7 @@ model User {
   emergencyContacts      EmergencyContact[]
   healthProfile          HealthProfile?
   monitoringSessions     MonitoringSession[]
+  fastScanResults        FastScanResult[]
 }
 
 model HealthProfile {
@@ -88,4 +89,19 @@ model VitalSample {
 enum MonitoringMode {
   QUICK_CHECK
   ACTIVE
+}
+
+model FastScanResult {
+  id             String   @id @default(cuid())
+  userId         String
+  mode           String   @default("self") // "self" or "other"
+  faceResult     String // "clear" or "flagged"
+  armResult      String // "clear" or "flagged"
+  speechResult   String // "clear" or "flagged"
+  overallOutcome String // e.g. "clear", "warning", "critical"
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

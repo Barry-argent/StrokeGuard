@@ -46,28 +46,15 @@ export default function FASTCheck() {
   const [speechTimer, setSpeechTimer] = useState(0);
   const [speechRunning, setSpeechRunning] = useState(false);
 
-  // Countdown logic
+  // We no longer rely on dummy random checks here.
+  // We use `countdown` strictly for Step 2 (Arm Test) duration (10s).
   useEffect(() => {
-    if (countdown !== null && countdown > 0) {
+    if (step === 2 && countdown !== null && countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (countdown === 0) {
-      // Auto-advance to result
-      if (step === 1) {
-        // Simulate face test result (random for demo)
-        setResults((prev) => ({
-          ...prev,
-          face: Math.random() > 0.7 ? 'flagged' : 'clear',
-        }));
-        setCountdown(null);
-      } else if (step === 2) {
-        // Simulate arm test result
-        setResults((prev) => ({
-          ...prev,
-          arm: Math.random() > 0.7 ? 'flagged' : 'clear',
-        }));
-        setCountdown(null);
-      }
+    } else if (step === 2 && countdown === 0) {
+      // 10 seconds of arm test completed
+      setCountdown(null);
     }
   }, [countdown, step]);
 
@@ -91,20 +78,86 @@ export default function FASTCheck() {
   const handleNextStep = () => {
     if (step === 1) {
       setStep(2);
-      setCountdown(10);
+      setCountdown(10); // Start 10s arm countdown
     } else if (step === 2) {
       setStep(3);
     } else if (step === 3) {
-      setResults((prev) => ({
-        ...prev,
-        timestamp: new Date().toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      }));
+      const ts = new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      setResults((prev) => ({ ...prev, timestamp: ts }));
       setStep(4);
+      submitFastResults({ ...results, timestamp: ts });
     }
   };
+
+  const submitFastResults = async (finalResults: FASTResults) => {
+    try {
+      await fetch('/api/internal/fast-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          faceResult: finalResults.face,
+          armResult: finalResults.arm,
+          speechResult: finalResults.speech,
+          overallOutcome: hasAnyFlags ? 'critical' : 'clear',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to submit FAST results:', err);
+    }
+  };
+
+  const handleFaceComplete = (result: 'clear' | 'flagged') => {
+    setResults(prev => ({ ...prev, face: result }));
+    setCountdown(null);
+  };
+
+  // ── Arm Test Drift Logic (DeviceMotionEvent) ──────────────────────────────
+  useEffect(() => {
+    if (step !== 2) return;
+
+    let hasDrifted = false;
+    let initialOrientation: { x: number, y: number, z: number } | null = null;
+    const driftThreshold = 4.0; // approx m/s^2 change in gravity vector
+
+    const handleMotion = (event: DeviceMotionEvent) => {
+      // If result is already decided, ignore
+      if (results.arm) return;
+
+      const acc = event.accelerationIncludingGravity;
+      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+
+      if (!initialOrientation) {
+        initialOrientation = { x: acc.x, y: acc.y, z: acc.z };
+        return;
+      }
+
+      // Check current acceleration against initial to see if arms dropped
+      const deltaX = Math.abs(acc.x - initialOrientation.x);
+      const deltaY = Math.abs(acc.y - initialOrientation.y);
+      const deltaZ = Math.abs(acc.z - initialOrientation.z);
+
+      if (deltaX > driftThreshold || deltaY > driftThreshold || deltaZ > driftThreshold) {
+        hasDrifted = true;
+        setResults(prev => ({ ...prev, arm: 'flagged' }));
+        setCountdown(null);
+      }
+    };
+
+    window.addEventListener('devicemotion', handleMotion);
+
+    // If countdown hits 0 and we haven't drifted, then arm is clear
+    if (countdown === 0 && !hasDrifted && !results.arm) {
+      setResults(prev => ({ ...prev, arm: 'clear' }));
+    }
+
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+    };
+  }, [step, countdown, results.arm]);
 
   const handleSpeechConfirmation = (result: 'clear' | 'flagged') => {
     setResults((prev) => ({ ...prev, speech: result }));
@@ -262,7 +315,11 @@ export default function FASTCheck() {
                     className="relative aspect-[4/3] flex items-center justify-center"
                     style={{ backgroundColor: '#0A1628' }}
                   >
-                    <WebcamPPG patientId={undefined} />
+                    <WebcamPPG 
+                      patientId={undefined} 
+                      isFastCheck={true} 
+                      onFaceCheckComplete={handleFaceComplete} 
+                    />
                     {/* Bottom Strip */}
                     <div
                       className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-3"
@@ -1342,13 +1399,27 @@ export default function FASTCheck() {
                             className="text-base font-semibold mb-1"
                             style={{ fontFamily: 'DM Sans, sans-serif', color: '#991B1B' }}
                           >
-                            One or more warning signs were flagged.
+                            {results.face === 'flagged' && results.arm === 'flagged' && results.speech === 'flagged' 
+                              ? "Critical warning: All three primary stroke signs detected."
+                              : results.face === 'flagged' && results.arm === 'flagged'
+                              ? "Warning: Both facial asymmetry and arm drift detected."
+                              : results.face === 'flagged' && results.speech === 'flagged'
+                              ? "Warning: Facial asymmetry and speech difficulty detected."
+                              : results.arm === 'flagged' && results.speech === 'flagged'
+                              ? "Warning: Arm drift and speech difficulty detected."
+                              : results.face === 'flagged'
+                              ? "Warning: Facial asymmetry detected."
+                              : results.arm === 'flagged'
+                              ? "Warning: Arm drift or weakness detected."
+                              : results.speech === 'flagged'
+                              ? "Warning: Speech difficulty detected."
+                              : "Warning signs detected."}
                           </p>
                           <p
                             className="text-[13px]"
                             style={{ fontFamily: 'DM Sans, sans-serif', color: '#7F1D1D' }}
                           >
-                            Do not wait. Contact emergency services or a medical professional immediately.
+                            Please do not wait. Contact emergency services or a medical professional immediately. Time is critical.
                           </p>
                         </div>
                       </>
@@ -1360,13 +1431,13 @@ export default function FASTCheck() {
                             className="text-base font-semibold mb-1"
                             style={{ fontFamily: 'DM Sans, sans-serif', color: '#065F46' }}
                           >
-                            No warning signs detected.
+                            No primary warning signs detected.
                           </p>
                           <p
                             className="text-[13px]"
                             style={{ fontFamily: 'DM Sans, sans-serif', color: '#064E3B' }}
                           >
-                            Stay alert. If any new symptoms appear, run another check or call emergency services.
+                            Face, arms, and speech appear normal. Stay alert. If any other sudden or severe symptoms appear, call emergency services.
                           </p>
                         </div>
                       </>
@@ -1380,6 +1451,7 @@ export default function FASTCheck() {
                     <button
                       className="w-full h-14 rounded-lg flex items-center justify-center gap-2"
                       style={{ backgroundColor: '#EF4444' }}
+                      onClick={() => window.location.href = 'tel:911'}
                     >
                       <Phone size={18} style={{ color: '#FFFFFF' }} />
                       <span
@@ -1420,16 +1492,9 @@ export default function FASTCheck() {
                   </button>
                 )}
 
-                <button
-                  className="text-center w-full mb-5"
-                  style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 500, color: '#0EA5E9' }}
-                >
-                  Save this result to history
-                </button>
-
                 {/* Critical Disclaimer */}
                 <div
-                  className="rounded-xl p-4 flex items-start gap-2"
+                  className="rounded-xl p-4 flex items-start gap-2 mb-8"
                   style={{ backgroundColor: '#F8FAFC' }}
                 >
                   <Info size={13} style={{ color: '#94A3B8', marginTop: 2 }} />

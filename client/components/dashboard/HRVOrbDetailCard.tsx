@@ -112,7 +112,7 @@ export function HRVOrbDetailCard({
                 <Heart size={14} className="text-[#64748B]" />
                 <span className="font-sans font-medium text-[13px] text-[#64748B]">Pulse Rate</span>
               </div>
-              <span className="font-mono text-[13px] text-[#0F172A]">{restingHR !== null ? restingHR : '--'} pulse/min</span>
+              <span className="font-mono text-[13px] text-[#0F172A]">{restingHR !== null ? restingHR.toFixed(1) : '--'} pulse/min</span>
             </div>
           </div>
 

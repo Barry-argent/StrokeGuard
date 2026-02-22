@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type MonitoringMode = 'idle' | 'quick-check' | 'active';
@@ -66,6 +67,7 @@ export function useStrokeMonitoring(
   isSignalGood: boolean,
   monitoringSessions: any[] = [],
 ): StrokeMonitoringState {
+  const router = useRouter();
   const [mode, setMode] = useState<MonitoringMode>('idle');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [sessionPulseRate, setSessionPulseRate] = useState<number | null>(null);
@@ -151,6 +153,10 @@ export function useStrokeMonitoring(
               if (data.alert_failure) {
                 console.warn('CRITICAL: Backend Twilio SMS failed. Triggering local fallback SMS.');
               }
+              // Automatically trigger the FAST scan if not already there
+              if (window.location.pathname !== '/fast-check/exam') {
+                router.push('/fast-check/exam');
+              }
             } else {
               // Status recovered from RED — resume normal polling
               pausePollingRef.current = false;
@@ -209,15 +215,24 @@ export function useStrokeMonitoring(
   }, [sessionsKey]);
 
   // ── Countdown timer ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mode !== 'quick-check' || countdown === null || countdown <= 0) return;
-    
-    // Pause the countdown if the camera cannot see a face or lighting is bad
-    if (!isSignalGood) return;
+  const isSignalGoodRef = useRef(isSignalGood);
+  isSignalGoodRef.current = isSignalGood;
 
-    const timer = setTimeout(() => setCountdown((c) => (c && c > 0 ? c - 1 : 0)), 1000);
-    return () => clearTimeout(timer);
-  }, [mode, countdown, isSignalGood]);
+  useEffect(() => {
+    if (mode !== 'quick-check') return;
+
+    const timer = setInterval(() => {
+      if (!isSignalGoodRef.current) return;
+
+      setCountdown((c) => {
+        if (c !== null && c > 0) return c - 1;
+        clearInterval(timer);
+        return 0;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [mode]);
 
   // ── Active monitoring timer ────────────────────────────────────────────────
   useEffect(() => {
