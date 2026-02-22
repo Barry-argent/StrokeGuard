@@ -264,10 +264,21 @@ export default function WebcamPPG({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           setStatus("Place your face in the camera view and hold still");
+          
           try {
+            // Mobile Safari fallback: explicitly set attributes and try to play
+            videoRef.current.setAttribute("playsinline", "true");
+            videoRef.current.setAttribute("muted", "true");
+            videoRef.current.setAttribute("autoplay", "true");
+            
             await videoRef.current.play();
-            // FIX 1: Start the rAF loop via the ref, not a direct function call
-            animFrameRef.current = requestAnimationFrame(processFrameRef.current);
+            
+            // Give the browser a moment to initialize videoWidth/Height
+            setTimeout(() => {
+              if (processFrameRef.current) {
+                animFrameRef.current = requestAnimationFrame(processFrameRef.current);
+              }
+            }, 300);
           } catch (e) {
             console.error("Video autoplay blocked:", e);
           }
@@ -463,20 +474,29 @@ export default function WebcamPPG({
       )}
 
       {/* Video + canvas always in DOM so refs are immediately available */}
-      <div style={{ position: "relative", display: isScanning ? "inline-block" : "none" }}>
-        <video ref={videoRef} width="640" height="480" autoPlay playsInline muted className="hidden" />
+      <div style={{ position: "relative", display: isScanning ? "inline-block" : "none", width: "100%", maxWidth: "640px" }}>
+        {/* Hidden but NOT using 'hidden' class to ensure stream is active on all mobile browsers */}
+        <video 
+          ref={videoRef} 
+          autoPlay 
+          playsInline 
+          muted 
+          style={{ position: "absolute", opacity: 0, width: "1px", height: "1px", pointerEvents: "none" }} 
+        />
         <canvas
           ref={canvasRef}
-          width="640"
-          height="480"
           style={{
             transform: "scaleX(-1)",
-            borderRadius: "12px",
-            border: "2px solid #1E293B",
-            maxWidth: "100%",
-            maxHeight: "220px",
-            objectFit: "contain",
+            borderRadius: "16px",
+            border: "2px solid #334155",
+            width: "100%",
+            height: "auto",
+            aspectRatio: "4/3",
+            maxWidth: "640px",
+            maxHeight: "260px",
+            objectFit: "cover",
             display: "block",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.5)"
           }}
         />
       </div>

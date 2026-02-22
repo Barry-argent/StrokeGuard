@@ -16,11 +16,12 @@ export async function GET(req: Request) {
     });
 
     if (!backendRes.ok) {
+        const errorText = await backendRes.text();
+        console.error(`[Vitals Status] External Backend Error (${backendRes.status}):`, errorText);
         if(backendRes.status === 404) {
             return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
         }
-        console.error("External Backend Status Error:", backendRes.status, await backendRes.text());
-        return NextResponse.json({ error: 'Backend error' }, { status: backendRes.status });
+        return NextResponse.json({ error: 'Backend error', details: errorText }, { status: backendRes.status });
     }
 
     const data = await backendRes.json();

@@ -68,8 +68,9 @@ export async function POST(req: Request) {
     });
 
     if (!backendRes.ok) {
-       console.error("External Backend Profile Sync Error:", backendRes.status, await backendRes.text());
-       return NextResponse.json({ error: 'Backend error' }, { status: backendRes.status });
+       const errorText = await backendRes.text();
+       console.error(`[Profile Sync] External Backend Error (${backendRes.status}):`, errorText);
+       return NextResponse.json({ error: 'Backend error', details: errorText }, { status: backendRes.status });
     }
 
     const data = await backendRes.json();
