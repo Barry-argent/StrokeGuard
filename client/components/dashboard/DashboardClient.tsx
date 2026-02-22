@@ -106,6 +106,12 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+/** Convert NaN / undefined to null so `?.toFixed()` never produces "NaN" */
+function safeNum(v: number | null | undefined): number | null {
+  if (v == null || Number.isNaN(v)) return null;
+  return v;
+}
+
 export function DashboardClient({
   userName,
   emergencyContacts,
@@ -144,8 +150,8 @@ export function DashboardClient({
   const lastSession = monitoringSessions?.[0] || null;
 
   // Derive PRV/HRV metrics directly from live webcam scan or session history
-  const sdnn = monitoring.sessionPRV ?? lastSession?.avgPrv ?? null;
-  const restingHR = monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null;
+  const sdnn = safeNum(monitoring.sessionPRV) ?? safeNum(lastSession?.avgPrv) ?? null;
+  const restingHR = safeNum(monitoring.sessionPulseRate) ?? safeNum(lastSession?.avgPulseRate) ?? null;
   const hrvi = sdnn !== null ? parseFloat((sdnn / 15).toFixed(2)) : null;
 
   const sparklineData = monitoringSessions
@@ -238,8 +244,8 @@ export function DashboardClient({
             <div className="-mx-4 sm:-mx-6 lg:-mx-8">
               <DashboardGreeting userName={userName} />
               <LiveVitalsStrip 
-                pulseRate={monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null} 
-                prv={monitoring.sessionPRV ?? lastSession?.avgPrv ?? null} 
+                pulseRate={safeNum(monitoring.sessionPulseRate) ?? safeNum(lastSession?.avgPulseRate) ?? null} 
+                prv={safeNum(monitoring.sessionPRV) ?? safeNum(lastSession?.avgPrv) ?? null} 
               />
             </div>
 
@@ -250,10 +256,10 @@ export function DashboardClient({
               {/* Stroke Score Card — dynamic, session-based */}
               <StrokeScoreCard
                 mode={monitoring.mode}
-                strokeScore={monitoring.strokeScore ?? lastSession?.finalScore ?? null}
+                strokeScore={safeNum(monitoring.strokeScore) ?? safeNum(lastSession?.finalScore) ?? null}
                 countdown={monitoring.countdown}
-                sessionPulseRate={monitoring.sessionPulseRate ?? lastSession?.avgPulseRate ?? null}
-                sessionPRV={monitoring.sessionPRV ?? lastSession?.avgPrv ?? null}
+                sessionPulseRate={safeNum(monitoring.sessionPulseRate) ?? safeNum(lastSession?.avgPulseRate) ?? null}
+                sessionPRV={safeNum(monitoring.sessionPRV) ?? safeNum(lastSession?.avgPrv) ?? null}
                 checkResult={monitoring.checkResult}
                 streak={monitoring.streak}
                 activeMinutesLeft={monitoring.activeMinutesLeft}

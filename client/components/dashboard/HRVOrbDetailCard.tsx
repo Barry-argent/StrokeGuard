@@ -73,7 +73,7 @@ export function HRVOrbDetailCard({
             <ShieldCheck size={32} className="text-[#10B981]" />
           </div>
           <span className="font-mono font-bold text-[20px] text-[#10B981] mb-1">
-            {sdnn !== null ? `${sdnn.toFixed(1)} ms` : '-- ms'}
+            {sdnn !== null && !Number.isNaN(sdnn) ? `${sdnn.toFixed(1)} ms` : '-- ms'}
           </span>
           <h3 className="font-sans font-bold text-[16px] text-[#10B981] mb-1">Healthy</h3>
           <p className="font-sans text-[12px] text-[#64748B] max-w-[180px]">
@@ -96,7 +96,7 @@ export function HRVOrbDetailCard({
                 <Activity size={14} className="text-[#64748B]" />
                 <span className="font-sans font-medium text-[13px] text-[#64748B]">SDNN</span>
               </div>
-              <span className="font-mono text-[13px] text-[#0F172A]">{sdnn !== null ? `${sdnn.toFixed(1)} ms` : '-- ms'}</span>
+              <span className="font-mono text-[13px] text-[#0F172A]">{sdnn !== null && !Number.isNaN(sdnn) ? `${sdnn.toFixed(1)} ms` : '-- ms'}</span>
             </div>
             
             <div className="flex items-center justify-between">
@@ -104,7 +104,7 @@ export function HRVOrbDetailCard({
                 <MoveUpRight size={14} className="text-[#64748B]" />
                 <span className="font-sans font-medium text-[13px] text-[#64748B]">PRVI</span>
               </div>
-              <span className="font-mono text-[13px] text-[#0F172A]">{hrvi !== null ? `${hrvi.toFixed(2)}` : '--'}</span>
+              <span className="font-mono text-[13px] text-[#0F172A]">{hrvi !== null && !Number.isNaN(hrvi) ? `${hrvi.toFixed(2)}` : '--'}</span>
             </div>
             
             <div className="flex items-center justify-between">
@@ -112,7 +112,7 @@ export function HRVOrbDetailCard({
                 <Heart size={14} className="text-[#64748B]" />
                 <span className="font-sans font-medium text-[13px] text-[#64748B]">Pulse Rate</span>
               </div>
-              <span className="font-mono text-[13px] text-[#0F172A]">{restingHR !== null ? restingHR.toFixed(1) : '--'} pulse/min</span>
+              <span className="font-mono text-[13px] text-[#0F172A]">{restingHR !== null && !Number.isNaN(restingHR) ? restingHR.toFixed(1) : '--'} pulse/min</span>
             </div>
           </div>
 

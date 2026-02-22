@@ -15,9 +15,9 @@ export function LiveVitalsStrip({ pulseRate, prv }: LiveVitalsStripProps) {
         <Heart size={12} className="text-[#EF4444] fill-[#EF4444]" />
         <div>
           <span className="font-mono font-bold text-[13px] text-[#EF4444]">
-            {pulseRate !== null ? pulseRate.toFixed(1) : '--'}
+            {pulseRate !== null && !Number.isNaN(pulseRate) ? pulseRate.toFixed(1) : '--'}
           </span>
-          {pulseRate !== null && (
+          {pulseRate !== null && !Number.isNaN(pulseRate) && (
             <span className="font-sans text-[11px] text-[#94A3B8] ml-1">pulse/min</span>
           )}
         </div>
@@ -29,9 +29,9 @@ export function LiveVitalsStrip({ pulseRate, prv }: LiveVitalsStripProps) {
         <Activity size={12} className="text-[#10B981]" />
         <div>
           <span className="font-mono font-bold text-[13px] text-[#10B981]">
-            {prv !== null ? prv.toFixed(1) : '--'}
+            {prv !== null && !Number.isNaN(prv) ? prv.toFixed(1) : '--'}
           </span>
-          {prv !== null && (
+          {prv !== null && !Number.isNaN(prv) && (
             <span className="font-sans text-[11px] text-[#94A3B8] ml-1">ms</span>
           )}
         </div>

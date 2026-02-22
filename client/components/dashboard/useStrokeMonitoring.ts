@@ -284,10 +284,15 @@ export function useStrokeMonitoring(
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const receiveVitals = useCallback((pulseRate: number, prv: number) => {
-    latestPR.current = pulseRate;
-    latestPRV.current = prv;
-    setSessionPulseRate(pulseRate);
-    setSessionPRV(prv);
+    // Guard: never store NaN in state — it bypasses ?? null checks and shows "NaN"
+    if (Number.isFinite(pulseRate)) {
+      latestPR.current = pulseRate;
+      setSessionPulseRate(pulseRate);
+    }
+    if (Number.isFinite(prv)) {
+      latestPRV.current = prv;
+      setSessionPRV(prv);
+    }
   }, []);
 
   const startQuickCheck = useCallback(() => {

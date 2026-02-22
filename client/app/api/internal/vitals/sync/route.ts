@@ -120,8 +120,9 @@ export async function POST(req: Request) {
 
     const computedScore = finalRiskScore ?? (triageStatus === 'RED' ? 20 : triageStatus === 'YELLOW' ? 50 : 85);
 
-    // Calculate averages
-    const avgPulseRate = pulseRates.reduce((a: number, b: number) => a + b, 0) / pulseRates.length;
+    // Calculate averages — guard against NaN (e.g. empty array edge case)
+    const rawAvgPR = pulseRates.reduce((a: number, b: number) => a + b, 0) / pulseRates.length;
+    const avgPulseRate = Number.isFinite(rawAvgPR) ? rawAvgPR : 0;
 
     // ── Database Synchronization ──
     const newSession = await prisma.monitoringSession.create({
@@ -134,7 +135,7 @@ export async function POST(req: Request) {
         alertFailure: !!backendData.alert_failure,
         aiAdvice: backendData.ai_coach || null,
         avgPulseRate,
-        avgPrv: prvScore,
+        avgPrv: Number.isFinite(prvScore) ? prvScore : 0,
         vitals: {
           create: pulseRates.map((pr: number) => ({
             pulseRate: pr,
