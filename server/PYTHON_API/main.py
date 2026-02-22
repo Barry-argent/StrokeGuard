@@ -180,7 +180,7 @@ async def generate_ai_coach(patient_id: str, sys: int, dia: int, hrv: float, aha
     system_instr = (
         "You are StrokeGuard AI. Analyze vitals vs history. Warm, calming tone. "
         "No diagnosis. No markdown. Detailed and comprehensive actionable next steps."
-    )
+        )
 
     try:
         response = await genai_client.aio.models.generate_content(
